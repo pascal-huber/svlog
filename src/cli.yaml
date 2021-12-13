@@ -7,6 +7,10 @@ args:
       short: l
       long: list
       help: List services
+  - boot:
+      short: b
+      long: boot
+      help: Only show logs since last boot
   - follow:
       short: f
       long: follow
