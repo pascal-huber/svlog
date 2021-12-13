@@ -7,6 +7,10 @@ args:
       short: l
       long: list
       help: List services
+  - follow:
+      short: f
+      long: follow
+      help: Follow the services for new logs
   - services:
       help: Services to log
       required: false
