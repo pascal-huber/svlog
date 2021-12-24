@@ -36,13 +36,20 @@ fn create_logline(line: String) -> LogLine {
     }
 }
 
-fn list_services() {
-    println!("Services:");
+fn all_services() -> Vec<String> {
+    let mut services = Vec::new();
     let path = Path::new(LOG_DIR);
     for entry in path.read_dir().expect("read_dir call failed").flatten() {
         let p = entry.path();
         let filename = p.file_name().unwrap().to_str().unwrap();
-        println!(" - {}", filename);
+        services.push(filename.to_string());
+    }
+    services
+}
+
+fn list_services() {
+    for service in all_services() {
+        println!(" - {}", service);
     }
 }
 
@@ -132,6 +139,18 @@ fn watch_changes(services: &[&str]) {
         .expect("failed to execute process");
 }
 
+fn read_services(services: Option<clap::Values>) -> Vec<&str> {
+    if let Some(services) = services {
+        let wanted_services: Vec<&str> = services.collect();
+        let all_services = all_services();
+        wanted_services.iter().all(|value| {
+            all_services.contains(&value.to_string()) || panic!("service \"{}\" not found", value)
+        });
+        return wanted_services;
+    }
+    ["**"].to_vec()
+}
+
 fn main() {
     let cli = load_yaml!("cli.yaml");
     let args = App::from(cli).get_matches();
@@ -141,11 +160,7 @@ fn main() {
         std::process::exit(0);
     }
 
-    let services: Vec<&str> = match args.is_present("services") {
-        false => args.values_of("services").unwrap().collect(),
-        true => ["**"].to_vec(),
-    };
-
+    let services = read_services(args.values_of("services"));
     show_logs(&services, args.is_present("boot"));
     if args.is_present("follow") {
         watch_changes(&services);
