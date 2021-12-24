@@ -19,7 +19,6 @@ static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.6f";
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 struct LogLine {
     date: NaiveDateTime,
-    // TODO: use &<a'> str instead of String?
     date_str: String,
     content: String,
 }
@@ -45,7 +44,7 @@ fn list_services() {
     }
 }
 
-fn file_paths(services: Vec<&str>, globs: Vec<&str>, files: &mut Vec<PathBuf>) {
+fn file_paths(services: &[&str], globs: Vec<&str>, files: &mut Vec<PathBuf>) {
     for service in services {
         for glob_str_ext in &globs {
             let glob_str = String::from(LOG_DIR) + service + glob_str_ext;
@@ -91,7 +90,7 @@ fn boot_time() -> NaiveDateTime {
     NaiveDateTime::from_timestamp(secs.unwrap().as_secs().try_into().unwrap(), 0)
 }
 
-fn show_logs(services: Vec<&str>, since_boot: bool) {
+fn show_logs(services: &[&str], since_boot: bool) {
     let mut files: Vec<PathBuf> = Vec::new();
     let glob_suffixes = ["/current", "/*.[su]"].to_vec();
     file_paths(services, glob_suffixes, &mut files);
@@ -109,7 +108,7 @@ fn show_logs(services: Vec<&str>, since_boot: bool) {
     }
 }
 
-fn watch_changes(services: Vec<&str>) {
+fn watch_changes(services: &[&str]) {
     let mut files: Vec<PathBuf> = Vec::new();
     let glob_suffixes = ["/current"].to_vec();
     file_paths(services, glob_suffixes, &mut files);
@@ -138,14 +137,13 @@ fn main() {
         std::process::exit(0);
     }
 
-    let mut services: Vec<&str> = ["**"].to_vec();
-    if matches.is_present("services") {
-        services = matches.values_of("services").unwrap().collect();
-    }
+    let services: Vec<&str> = match matches.is_present("services") {
+        false => matches.values_of("services").unwrap().collect(),
+        true => ["**"].to_vec(),
+    };
 
+    show_logs(&services, matches.is_present("boot"));
     if matches.is_present("follow") {
-        watch_changes(services);
-    } else {
-        show_logs(services, matches.is_present("boot"));
+        watch_changes(&services);
     }
 }
