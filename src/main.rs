@@ -15,6 +15,8 @@ use sys_info::boottime;
 static LOG_DIR: &str = "/var/log/socklog/";
 // TODO: find out why there are only 5 digits at the end of socklog timestamps
 static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.6f";
+static GLOB_ALL_FILES: &[&str] = &["/current", "/*.[su]"];
+static GLOB_CURRENT_FILES: &[&str] = &["/current"];
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 struct LogLine {
@@ -44,9 +46,14 @@ fn list_services() {
     }
 }
 
-fn file_paths(services: &[&str], globs: Vec<&str>, files: &mut Vec<PathBuf>) {
+fn file_paths(services: &[&str], only_current: bool) -> Vec<PathBuf> {
+    let globs = match only_current {
+        true => GLOB_CURRENT_FILES,
+        false => GLOB_ALL_FILES,
+    };
+    let mut files = Vec::new();
     for service in services {
-        for glob_str_ext in &globs {
+        for glob_str_ext in globs {
             let glob_str = String::from(LOG_DIR) + service + glob_str_ext;
             for entry in glob(&glob_str[..])
                 .expect("Failed to read glob pattern")
@@ -56,6 +63,7 @@ fn file_paths(services: &[&str], globs: Vec<&str>, files: &mut Vec<PathBuf>) {
             }
         }
     }
+    files
 }
 
 fn extract_loglines(
@@ -91,9 +99,7 @@ fn boot_time() -> NaiveDateTime {
 }
 
 fn show_logs(services: &[&str], since_boot: bool) {
-    let mut files: Vec<PathBuf> = Vec::new();
-    let glob_suffixes = ["/current", "/*.[su]"].to_vec();
-    file_paths(services, glob_suffixes, &mut files);
+    let files = file_paths(services, false);
 
     let mut loglines: BTreeSet<LogLine> = BTreeSet::new();
     let boottime: Option<NaiveDateTime> = match since_boot {
@@ -109,9 +115,7 @@ fn show_logs(services: &[&str], since_boot: bool) {
 }
 
 fn watch_changes(services: &[&str]) {
-    let mut files: Vec<PathBuf> = Vec::new();
-    let glob_suffixes = ["/current"].to_vec();
-    file_paths(services, glob_suffixes, &mut files);
+    let files = file_paths(services, true);
 
     let mut cmd: String = String::from("tail -Fq -n0 ");
     for file in files {
@@ -129,21 +133,21 @@ fn watch_changes(services: &[&str]) {
 }
 
 fn main() {
-    let yaml = load_yaml!("cli.yaml");
-    let matches = App::from(yaml).get_matches();
+    let cli = load_yaml!("cli.yaml");
+    let args = App::from(cli).get_matches();
 
-    if matches.is_present("list") {
+    if args.is_present("list") {
         list_services();
         std::process::exit(0);
     }
 
-    let services: Vec<&str> = match matches.is_present("services") {
-        false => matches.values_of("services").unwrap().collect(),
+    let services: Vec<&str> = match args.is_present("services") {
+        false => args.values_of("services").unwrap().collect(),
         true => ["**"].to_vec(),
     };
 
-    show_logs(&services, matches.is_present("boot"));
-    if matches.is_present("follow") {
+    show_logs(&services, args.is_present("boot"));
+    if args.is_present("follow") {
         watch_changes(&services);
     }
 }
