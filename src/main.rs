@@ -53,14 +53,18 @@ fn list_services() {
     }
 }
 
-fn file_paths(services: &[&str], only_current: bool) -> Vec<PathBuf> {
-    let globs = match only_current {
+fn file_paths(services: &Option<Vec<&str>>, only_current: bool) -> Vec<PathBuf> {
+    let file_globs = match only_current {
         true => GLOB_CURRENT_FILES,
         false => GLOB_ALL_FILES,
     };
+    let service_globs = match services {
+        Some(s) => s.as_slice(),
+        _ => &["**"],
+    };
     let mut files = Vec::new();
-    for service in services {
-        for glob_str_ext in globs {
+    for service in service_globs {
+        for glob_str_ext in file_globs {
             let glob_str = String::from(LOG_DIR) + service + glob_str_ext;
             for entry in glob(&glob_str[..])
                 .expect("Failed to read glob pattern")
@@ -105,7 +109,7 @@ fn boot_time() -> NaiveDateTime {
     NaiveDateTime::from_timestamp(secs.unwrap().as_secs().try_into().unwrap(), 0)
 }
 
-fn show_logs(services: &[&str], since_boot: bool) {
+fn show_logs(services: &Option<Vec<&str>>, since_boot: bool) {
     let files = file_paths(services, false);
 
     let mut loglines: BTreeSet<LogLine> = BTreeSet::new();
@@ -121,7 +125,7 @@ fn show_logs(services: &[&str], since_boot: bool) {
     }
 }
 
-fn watch_changes(services: &[&str]) {
+fn watch_changes(services: &Option<Vec<&str>>) {
     let files = file_paths(services, true);
 
     let mut cmd: String = String::from("tail -Fq -n0 ");
@@ -139,16 +143,16 @@ fn watch_changes(services: &[&str]) {
         .expect("failed to execute process");
 }
 
-fn read_services(services: Option<clap::Values>) -> Vec<&str> {
+fn read_services(services: Option<clap::Values>) -> Option<Vec<&str>> {
     if let Some(services) = services {
         let wanted_services: Vec<&str> = services.collect();
         let all_services = all_services();
         wanted_services.iter().all(|value| {
             all_services.contains(&value.to_string()) || panic!("service \"{}\" not found", value)
         });
-        return wanted_services;
+        return Some(wanted_services);
     }
-    ["**"].to_vec()
+    None
 }
 
 fn main() {
