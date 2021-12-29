@@ -1,7 +1,11 @@
 [package]
 name = "svlog"
 version = "0.1.1"
+authors = ["Pascal Huber <pascal.huber@resolved.ch"]
 edition = "2018"
+description = "Display, filter and follow socklog log files on Void Linux"
+readme = "README.md"
+license-file = "LICENSE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
