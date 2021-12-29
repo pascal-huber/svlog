@@ -3,6 +3,7 @@ extern crate sys_info;
 use chrono::NaiveDateTime;
 use clap::{load_yaml, App};
 use glob::glob;
+use regex::{Regex, RegexBuilder};
 use std::collections::BTreeSet;
 use std::convert::TryInto;
 use std::fs::File;
@@ -81,18 +82,25 @@ fn extract_loglines(
     file: PathBuf,
     loglines: &mut BTreeSet<LogLine>,
     boottime: Option<NaiveDateTime>,
+    re: &Option<Regex>,
 ) {
     let file = File::open(file);
     if let Ok(file) = file {
         let reader = BufReader::new(file);
         for line in reader.lines().flatten() {
             let logline = create_logline(line);
-            if match boottime {
-                Some(time) => time <= logline.date,
-                _ => true,
-            } {
-                loglines.insert(logline);
-            }
+            // TODO: can we make this nicer (e.g. https://github.com/rust-lang/rfcs/pull/2497)?
+            if let Some(boottime) = boottime {
+                if boottime > logline.date {
+                    continue;
+                }
+            };
+            if let Some(re) = re {
+                if !re.is_match(&logline.content[..]) {
+                    continue;
+                }
+            };
+            loglines.insert(logline);
         }
     }
 }
@@ -109,8 +117,13 @@ fn boot_time() -> NaiveDateTime {
     NaiveDateTime::from_timestamp(secs.unwrap().as_secs().try_into().unwrap(), 0)
 }
 
-fn show_logs(services: &Option<Vec<&str>>, since_boot: bool) {
+fn build_regex(pattern: Option<&str>) -> Option<Regex> {
+    pattern.map(|x| RegexBuilder::new(x).case_insensitive(true).build().unwrap())
+}
+
+fn show_logs(services: &Option<Vec<&str>>, since_boot: bool, pattern: Option<&str>) {
     let files = file_paths(services, false);
+    let re = build_regex(pattern);
 
     let mut loglines: BTreeSet<LogLine> = BTreeSet::new();
     let boottime: Option<NaiveDateTime> = match since_boot {
@@ -118,14 +131,15 @@ fn show_logs(services: &Option<Vec<&str>>, since_boot: bool) {
         _ => None,
     };
     for file in files {
-        extract_loglines(file, &mut loglines, boottime);
+        extract_loglines(file, &mut loglines, boottime, &re);
     }
     for logline in loglines {
         println!("{} {}", logline.date_str, logline.content);
     }
 }
 
-fn watch_changes(services: &Option<Vec<&str>>) {
+// TODO: make file watching better
+fn watch_changes(services: &Option<Vec<&str>>, pattern: Option<&str>) {
     let files = file_paths(services, true);
 
     let mut cmd: String = String::from("tail -Fq -n0 ");
@@ -133,8 +147,15 @@ fn watch_changes(services: &Option<Vec<&str>>) {
         let x = file.to_str();
         cmd = cmd + x.unwrap() + " ";
     }
+    if let Some(pattern) = pattern {
+        cmd += "| grep -i -h --line-buffered \"";
+        cmd += pattern;
+        cmd += "\"";
+    }
 
-    cmd += " | uniq"; // TODO: is this necessary?
+    // TODO: this doesn't work reliably as the messages are not sorted
+    cmd += " | uniq ";
+
     Command::new("sh")
         .arg("-c")
         .arg(cmd)
@@ -165,8 +186,11 @@ fn main() {
     }
 
     let services = read_services(args.values_of("services"));
-    show_logs(&services, args.is_present("boot"));
-    if args.is_present("follow") {
-        watch_changes(&services);
+    let pattern = args.value_of("match");
+    if !args.is_present("none") {
+        show_logs(&services, args.is_present("boot"), pattern);
+    }
+    if args.is_present("follow")  || args.is_present("none") {
+        watch_changes(&services, pattern);
     }
 }
