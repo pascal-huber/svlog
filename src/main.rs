@@ -188,7 +188,9 @@ fn main() {
     }
 
     if !args.is_present("plain") && !args.is_present("follow") && !args.is_present("none") {
-        Pager::new().setup();
+        // TODO: check why it panicks without the +G when exiting the pager
+        //       with a large number of lines and not having moved down manually.
+        Pager::with_pager("less -S +G -i").setup();
     }
 
     let services = read_services(args.values_of("services"));
