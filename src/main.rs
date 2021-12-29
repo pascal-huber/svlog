@@ -1,8 +1,10 @@
+extern crate pager;
 extern crate sys_info;
 
 use chrono::NaiveDateTime;
 use clap::{load_yaml, App};
 use glob::glob;
+use pager::Pager;
 use regex::{Regex, RegexBuilder};
 use std::collections::BTreeSet;
 use std::convert::TryInto;
@@ -185,12 +187,16 @@ fn main() {
         std::process::exit(0);
     }
 
+    if !args.is_present("plain") && !args.is_present("follow") && !args.is_present("none") {
+        Pager::new().setup();
+    }
+
     let services = read_services(args.values_of("services"));
     let pattern = args.value_of("match");
     if !args.is_present("none") {
         show_logs(&services, args.is_present("boot"), pattern);
     }
-    if args.is_present("follow")  || args.is_present("none") {
+    if args.is_present("follow") || args.is_present("none") {
         watch_changes(&services, pattern);
     }
 }

@@ -25,6 +25,10 @@ args:
       short: n
       long: none
       help: Don't show any past logs (implies --follow)
+  - plain:
+      short: p
+      long: plain
+      help: Don't run PAGER on output
   - services:
       help: Services to log
       required: false
