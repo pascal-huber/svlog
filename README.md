@@ -4,7 +4,7 @@ Display, filter and follow socklog log files on Void Linux.
 
 ## Example usage
 
-Show kernel logs since last boot containing the "bluetooth"
+Show kernel logs since last boot containing "blue"
 
 ``` sh
 svlog kernel -b -m blue
