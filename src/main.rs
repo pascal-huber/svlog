@@ -3,6 +3,7 @@ extern crate sys_info;
 
 use chrono::NaiveDateTime;
 use clap::{load_yaml, App};
+use calm_io::stdoutln;
 use glob::glob;
 use pager::Pager;
 use regex::{Regex, RegexBuilder};
@@ -136,7 +137,8 @@ fn show_logs(services: &Option<Vec<&str>>, since_boot: bool, pattern: Option<&st
         extract_loglines(file, &mut loglines, boottime, &re);
     }
     for logline in loglines {
-        println!("{} {}", logline.date_str, logline.content);
+        // TODO: find out if this is okay or risky.
+        stdoutln!("{} {}", logline.date_str, logline.content);
     }
 }
 
@@ -188,9 +190,7 @@ fn main() {
     }
 
     if !args.is_present("plain") && !args.is_present("follow") && !args.is_present("none") {
-        // TODO: check why it panicks without the +G when exiting the pager
-        //       with a large number of lines and not having moved down manually.
-        Pager::with_pager("less -S +G -i").setup();
+        Pager::new().setup();
     }
 
     let services = read_services(args.values_of("services"));

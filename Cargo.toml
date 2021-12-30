@@ -1,6 +1,6 @@
 [package]
 name = "svlog"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Pascal Huber <pascal.huber@resolved.ch"]
 edition = "2018"
 description = "Display, filter and follow socklog log files on Void Linux"
@@ -10,6 +10,7 @@ license-file = "LICENSE"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+calm_io = "0.1.1"
 chrono = "0.4"
 clap = { version = "*", features = ["yaml"] }
 glob = "0.3.0"
