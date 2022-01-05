@@ -15,11 +15,11 @@ Your PC froze and you had to reset it. You have no idea why this happened and
 want to see all kernel logs from the previous boot.
 
 ``` sh
-svlog kernel --boot 1 kernel
+svlog kernel -o 1 kernel
 ```
 
 You want to see all upcoming kernel and xbps logs (for whatever reason).
 
 ``` sh
-svlog -n -f xbps kernel
+svlog -n xbps kernel
 ```

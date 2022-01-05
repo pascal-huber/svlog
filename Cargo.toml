@@ -1,9 +1,9 @@
 [package]
 name = "svlog"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Pascal Huber <pascal.huber@resolved.ch>"]
 edition = "2018"
-description = "Display, filter and follow socklog log files on Void Linux"
+description = "Display, filter and follow socklog log files on Void Linux."
 readme = "README.md"
 license-file = "LICENSE"
 
