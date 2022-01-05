@@ -1,20 +1,21 @@
 extern crate pager;
 extern crate sys_info;
 
-use chrono::NaiveDateTime;
-use clap::{load_yaml, App};
+mod cli;
+mod util;
 use calm_io::stdoutln;
+use chrono::NaiveDateTime;
+use clap::Parser;
+use cli::Args;
 use glob::glob;
 use pager::Pager;
 use regex::{Regex, RegexBuilder};
 use std::collections::BTreeSet;
-use std::convert::TryInto;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::{Duration, SystemTime};
-use sys_info::boottime;
+use util::*;
 
 static LOG_DIR: &str = "/var/log/socklog/";
 // TODO: find out why there are only 5 digits at the end of socklog timestamps
@@ -57,19 +58,19 @@ fn list_services() {
     }
 }
 
-fn file_paths(services: &Option<Vec<&str>>, only_current: bool) -> Vec<PathBuf> {
+fn file_paths(services: &[String], only_current: bool) -> Vec<PathBuf> {
     let file_globs = match only_current {
         true => GLOB_CURRENT_FILES,
         false => GLOB_ALL_FILES,
     };
-    let service_globs = match services {
-        Some(s) => s.as_slice(),
-        _ => &["**"],
-    };
+    let mut service_globs = services.to_owned();
+    if service_globs.is_empty() {
+        service_globs.push(String::from("**"));
+    }
     let mut files = Vec::new();
     for service in service_globs {
         for glob_str_ext in file_globs {
-            let glob_str = String::from(LOG_DIR) + service + glob_str_ext;
+            let glob_str = String::from(LOG_DIR) + &service[..] + glob_str_ext;
             for entry in glob(&glob_str[..])
                 .expect("Failed to read glob pattern")
                 .flatten()
@@ -84,7 +85,8 @@ fn file_paths(services: &Option<Vec<&str>>, only_current: bool) -> Vec<PathBuf> 
 fn extract_loglines(
     file: PathBuf,
     loglines: &mut BTreeSet<LogLine>,
-    boottime: Option<NaiveDateTime>,
+    from: Option<NaiveDateTime>,
+    until: Option<NaiveDateTime>,
     re: &Option<Regex>,
 ) {
     let file = File::open(file);
@@ -93,8 +95,13 @@ fn extract_loglines(
         for line in reader.lines().flatten() {
             let logline = create_logline(line);
             // TODO: can we make this nicer (e.g. https://github.com/rust-lang/rfcs/pull/2497)?
-            if let Some(boottime) = boottime {
-                if boottime > logline.date {
+            if let Some(from) = from {
+                if from > logline.date {
+                    continue;
+                }
+            };
+            if let Some(until) = until {
+                if until <= logline.date {
                     continue;
                 }
             };
@@ -108,42 +115,38 @@ fn extract_loglines(
     }
 }
 
-// TODO: check if the boot time is exact enough
-fn boot_time() -> NaiveDateTime {
-    let now = SystemTime::now();
-    let uptime = boottime().unwrap();
-
-    let duration = Duration::new(uptime.tv_sec.try_into().unwrap(), 0);
-    let boottime = now.checked_sub(duration).unwrap();
-
-    let secs = boottime.duration_since(SystemTime::UNIX_EPOCH);
-    NaiveDateTime::from_timestamp(secs.unwrap().as_secs().try_into().unwrap(), 0)
+fn build_regex(pattern: &Option<String>) -> Option<Regex> {
+    pattern.as_ref().map(|pattern| {
+        RegexBuilder::new(&pattern[..])
+            .case_insensitive(true)
+            .build()
+            .unwrap()
+    })
 }
 
-fn build_regex(pattern: Option<&str>) -> Option<Regex> {
-    pattern.map(|x| RegexBuilder::new(x).case_insensitive(true).build().unwrap())
-}
-
-fn show_logs(services: &Option<Vec<&str>>, since_boot: bool, pattern: Option<&str>) {
+fn show_logs(
+    services: &[String],
+    from: Option<NaiveDateTime>,
+    until: Option<NaiveDateTime>,
+    pattern: &Option<String>,
+) {
     let files = file_paths(services, false);
     let re = build_regex(pattern);
 
     let mut loglines: BTreeSet<LogLine> = BTreeSet::new();
-    let boottime: Option<NaiveDateTime> = match since_boot {
-        true => Some(boot_time()),
-        _ => None,
-    };
+
     for file in files {
-        extract_loglines(file, &mut loglines, boottime, &re);
+        extract_loglines(file, &mut loglines, from, until, &re);
     }
+    #[allow(unused_must_use)]
     for logline in loglines {
-        // TODO: find out if this is okay or risky.
+        // TODO: find out if stdoutln! is okay or risky.
         stdoutln!("{} {}", logline.date_str, logline.content);
     }
 }
 
 // TODO: make file watching better
-fn watch_changes(services: &Option<Vec<&str>>, pattern: Option<&str>) {
+fn watch_changes(services: &[String], pattern: &Option<String>) {
     let files = file_paths(services, true);
 
     let mut cmd: String = String::from("tail -Fq -n0 ");
@@ -153,11 +156,11 @@ fn watch_changes(services: &Option<Vec<&str>>, pattern: Option<&str>) {
     }
     if let Some(pattern) = pattern {
         cmd += "| grep -i -h --line-buffered \"";
-        cmd += pattern;
+        cmd += &pattern[..];
         cmd += "\"";
     }
 
-    // TODO: this doesn't work reliably as the messages are not sorted
+    // TODO: this doesn't work reliably as the messages are not necessarily sorted
     cmd += " | uniq ";
 
     Command::new("sh")
@@ -168,37 +171,43 @@ fn watch_changes(services: &Option<Vec<&str>>, pattern: Option<&str>) {
         .expect("failed to execute process");
 }
 
-fn read_services(services: Option<clap::Values>) -> Option<Vec<&str>> {
-    if let Some(services) = services {
-        let wanted_services: Vec<&str> = services.collect();
-        let all_services = all_services();
-        wanted_services.iter().all(|value| {
-            all_services.contains(&value.to_string()) || panic!("service \"{}\" not found", value)
-        });
-        return Some(wanted_services);
-    }
-    None
+fn check_services(services: &[String]) {
+    let all_services = all_services();
+    services.iter().all(|value| {
+        all_services.contains(&value.to_string()) || panic!("service \"{}\" not found", value)
+    });
 }
 
 fn main() {
-    let cli = load_yaml!("cli.yaml");
-    let args = App::from(cli).get_matches();
+    let args = Args::parse();
 
-    if args.is_present("list") {
+    if args.list {
         list_services();
         std::process::exit(0);
     }
 
-    if !args.is_present("plain") && !args.is_present("follow") && !args.is_present("none") {
-        Pager::new().setup();
+    let mut from: Option<NaiveDateTime> = None;
+    let mut until: Option<NaiveDateTime> = None;
+    if args.boot {
+        let bt = boot_times(0);
+        from = bt.0;
+        until = bt.1;
+    }
+    if let Some(offset) = args.boot_offset {
+        let bt = boot_times(offset);
+        from = bt.0;
+        until = bt.1;
     }
 
-    let services = read_services(args.values_of("services"));
-    let pattern = args.value_of("match");
-    if !args.is_present("none") {
-        show_logs(&services, args.is_present("boot"), pattern);
+    check_services(&args.services);
+
+    if !(args.plain || args.follow || args.none) {
+        Pager::new().setup();
     }
-    if args.is_present("follow") || args.is_present("none") {
-        watch_changes(&services, pattern);
+    if !args.none {
+        show_logs(&args.services, from, until, &args.filter);
+    }
+    if args.follow || args.none {
+        watch_changes(&args.services, &args.filter);
     }
 }
