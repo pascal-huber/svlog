@@ -9,8 +9,8 @@ use clap::Parser;
 use cli::Args;
 use glob::glob;
 use pager::Pager;
+use rayon::prelude::*;
 use regex::{Regex, RegexBuilder};
-use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::path::{Path, PathBuf};
@@ -82,37 +82,49 @@ fn file_paths(services: &[String], only_current: bool) -> Vec<PathBuf> {
     files
 }
 
-fn extract_loglines(
-    file: PathBuf,
-    loglines: &mut BTreeSet<LogLine>,
+fn required_logline(
+    logline: &LogLine,
     from: Option<NaiveDateTime>,
     until: Option<NaiveDateTime>,
     re: &Option<Regex>,
-) {
-    let file = File::open(file);
+) -> bool {
+    // TODO: can we make this nicer (e.g. https://github.com/rust-lang/rfcs/pull/2497)?
+    if let Some(from) = from {
+        if from > logline.date {
+            return false;
+        }
+    };
+    if let Some(until) = until {
+        if until <= logline.date {
+            return false;
+        }
+    };
+    if let Some(re) = re {
+        if !re.is_match(&logline.content[..]) {
+            return false;
+        }
+    };
+    true
+}
+
+fn extract_loglines(
+    path: PathBuf,
+    from: Option<NaiveDateTime>,
+    until: Option<NaiveDateTime>,
+    re: &Option<Regex>,
+) -> Vec<LogLine> {
+    let file = File::open(path);
+    let mut loglines: Vec<LogLine> = Vec::new();
     if let Ok(file) = file {
         let reader = BufReader::new(file);
-        for line in reader.lines().flatten() {
-            let logline = create_logline(line);
-            // TODO: can we make this nicer (e.g. https://github.com/rust-lang/rfcs/pull/2497)?
-            if let Some(from) = from {
-                if from > logline.date {
-                    continue;
-                }
-            };
-            if let Some(until) = until {
-                if until <= logline.date {
-                    continue;
-                }
-            };
-            if let Some(re) = re {
-                if !re.is_match(&logline.content[..]) {
-                    continue;
-                }
-            };
-            loglines.insert(logline);
-        }
+        loglines = reader
+            .lines()
+            .flatten()
+            .map(create_logline)
+            .filter(|l| required_logline(l, from, until, re))
+            .collect();
     }
+    loglines
 }
 
 fn build_regex(pattern: &Option<String>) -> Option<Regex> {
@@ -125,6 +137,7 @@ fn build_regex(pattern: &Option<String>) -> Option<Regex> {
 }
 
 fn show_logs(
+    jobs: usize,
     services: &[String],
     from: Option<NaiveDateTime>,
     until: Option<NaiveDateTime>,
@@ -133,11 +146,17 @@ fn show_logs(
     let files = file_paths(services, false);
     let re = build_regex(pattern);
 
-    let mut loglines: BTreeSet<LogLine> = BTreeSet::new();
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(jobs)
+        .build_global()
+        .unwrap();
 
-    for file in files {
-        extract_loglines(file, &mut loglines, from, until, &re);
-    }
+    let mut loglines: Vec<LogLine> = files
+        .into_par_iter()
+        .flat_map(|f| extract_loglines(f, from, until, &re).into_par_iter())
+        .collect();
+    loglines.sort();
+
     #[allow(unused_must_use)]
     for logline in loglines {
         // TODO: find out if stdoutln! is okay or risky.
@@ -205,7 +224,7 @@ fn main() {
         Pager::new().setup();
     }
     if !args.none {
-        show_logs(&args.services, from, until, &args.filter);
+        show_logs(args.jobs, &args.services, from, until, &args.filter);
     }
     if args.follow || args.none {
         watch_changes(&args.services, &args.filter);

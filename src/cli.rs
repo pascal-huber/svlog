@@ -27,6 +27,11 @@ pub struct Args {
     #[clap(short, long)]
     pub none: bool,
 
+    /// Number parallel jobs to process log files, by default number of logical
+    /// processors (rayon's default)
+    #[clap(short, long, default_value = "0")]
+    pub jobs: usize,
+
     /// Show logs of some old boot with offset <OFFSET> where an offset of 0 is
     /// the current boot, an offset of 1 the previous and so on
     #[clap(
