@@ -15,6 +15,7 @@ use logline::*;
 use pager::Pager;
 use rayon::prelude::*;
 use std::process::{Command, Stdio};
+use std::collections::BTreeSet;
 use util::*;
 
 fn list_services() {
@@ -38,11 +39,10 @@ fn show_logs(
         .build_global()
         .unwrap();
 
-    let mut loglines: Vec<LogLine> = files
+    let loglines: BTreeSet<LogLine> = files
         .into_par_iter()
         .flat_map(|f| extract_loglines(f, from, until, &re).into_par_iter())
         .collect();
-    loglines.sort();
 
     #[allow(unused_must_use)]
     for logline in loglines {
