@@ -1,7 +1,29 @@
+use crate::util::*;
 use clap::ColorChoice;
 use clap::Parser;
+use std::error::Error;
+use std::fmt;
 
 static HELP_TEMPLATE: &str = "USAGE: {usage}\n{about}\n\n{all-args}";
+
+#[derive(Debug)]
+struct ServiceNotFoundError(String);
+impl fmt::Display for ServiceNotFoundError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl Error for ServiceNotFoundError {}
+
+fn parse_service(s: &str) -> Result<String, Box<dyn Error + Send + Sync + 'static>> {
+    if ALL_SERVICES.contains(&s.to_string()) {
+        return Ok(s.to_string());
+    }
+    return Err(Box::new(ServiceNotFoundError(format!(
+        "Service \"{}\" not found",
+        s
+    ))));
+}
 
 #[derive(Parser, Debug)]
 #[clap(about, version, author, color = ColorChoice::Never, help_template = HELP_TEMPLATE)]
@@ -47,6 +69,6 @@ pub struct Args {
     pub plain: bool,
 
     /// Services to log (all by default)
-    #[clap()]
+    #[clap(parse(try_from_str = parse_service))]
     pub services: Vec<String>,
 }

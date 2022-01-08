@@ -402,6 +402,7 @@ dependencies = [
  "clap",
  "glob",
  "globber",
+ "lazy_static",
  "pager",
  "rayon",
  "regex",

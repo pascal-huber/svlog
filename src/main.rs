@@ -1,139 +1,26 @@
-extern crate pager;
-extern crate sys_info;
+#[cfg_attr(feature = "cargo-clippy", allow(clippy::useless_attribute))]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate lazy_static;
 
 mod cli;
+mod logline;
 mod util;
+
 use calm_io::stdoutln;
 use chrono::NaiveDateTime;
 use clap::Parser;
 use cli::Args;
-use glob::glob;
+use logline::*;
 use pager::Pager;
 use rayon::prelude::*;
-use regex::{Regex, RegexBuilder};
-use std::fs::File;
-use std::io::{prelude::*, BufReader};
-use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use util::*;
 
-static LOG_DIR: &str = "/var/log/socklog/";
-// TODO: find out why there are only 5 digits at the end of socklog timestamps
-static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.6f";
-static GLOB_ALL_FILES: &[&str] = &["/current", "/*.[su]"];
-static GLOB_CURRENT_FILES: &[&str] = &["/current"];
-
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-struct LogLine {
-    date: NaiveDateTime,
-    date_str: String,
-    content: String,
-}
-
-fn create_logline(line: String) -> LogLine {
-    let date_str: &str = &line[..25];
-    let date = NaiveDateTime::parse_from_str(date_str, DATE_FORMAT).unwrap();
-    let content_str: &str = &line[26..];
-    LogLine {
-        date,
-        date_str: date_str.to_string(),
-        content: content_str.to_string(),
-    }
-}
-
-fn all_services() -> Vec<String> {
-    let mut services = Vec::new();
-    let path = Path::new(LOG_DIR);
-    for entry in path.read_dir().expect("read_dir call failed").flatten() {
-        let p = entry.path();
-        let filename = p.file_name().unwrap().to_str().unwrap();
-        services.push(filename.to_string());
-    }
-    services
-}
-
 fn list_services() {
-    for service in all_services() {
+    for service in ALL_SERVICES.iter() {
         println!(" - {}", service);
     }
-}
-
-fn file_paths(services: &[String], only_current: bool) -> Vec<PathBuf> {
-    let file_globs = match only_current {
-        true => GLOB_CURRENT_FILES,
-        false => GLOB_ALL_FILES,
-    };
-    let mut service_globs = services.to_owned();
-    if service_globs.is_empty() {
-        service_globs.push(String::from("**"));
-    }
-    let mut files = Vec::new();
-    for service in service_globs {
-        for glob_str_ext in file_globs {
-            let glob_str = String::from(LOG_DIR) + &service[..] + glob_str_ext;
-            for entry in glob(&glob_str[..])
-                .expect("Failed to read glob pattern")
-                .flatten()
-            {
-                files.push(entry);
-            }
-        }
-    }
-    files
-}
-
-fn required_logline(
-    logline: &LogLine,
-    from: Option<NaiveDateTime>,
-    until: Option<NaiveDateTime>,
-    re: &Option<Regex>,
-) -> bool {
-    // TODO: can we make this nicer (e.g. https://github.com/rust-lang/rfcs/pull/2497)?
-    if let Some(from) = from {
-        if from > logline.date {
-            return false;
-        }
-    };
-    if let Some(until) = until {
-        if until <= logline.date {
-            return false;
-        }
-    };
-    if let Some(re) = re {
-        if !re.is_match(&logline.content[..]) {
-            return false;
-        }
-    };
-    true
-}
-
-fn extract_loglines(
-    path: PathBuf,
-    from: Option<NaiveDateTime>,
-    until: Option<NaiveDateTime>,
-    re: &Option<Regex>,
-) -> Vec<LogLine> {
-    let file = File::open(path);
-    let mut loglines: Vec<LogLine> = Vec::new();
-    if let Ok(file) = file {
-        let reader = BufReader::new(file);
-        loglines = reader
-            .lines()
-            .flatten()
-            .map(create_logline)
-            .filter(|l| required_logline(l, from, until, re))
-            .collect();
-    }
-    loglines
-}
-
-fn build_regex(pattern: &Option<String>) -> Option<Regex> {
-    pattern.as_ref().map(|pattern| {
-        RegexBuilder::new(&pattern[..])
-            .case_insensitive(true)
-            .build()
-            .unwrap()
-    })
 }
 
 fn show_logs(
@@ -190,13 +77,6 @@ fn watch_changes(services: &[String], pattern: &Option<String>) {
         .expect("failed to execute process");
 }
 
-fn check_services(services: &[String]) {
-    let all_services = all_services();
-    services.iter().all(|value| {
-        all_services.contains(&value.to_string()) || panic!("service \"{}\" not found", value)
-    });
-}
-
 fn main() {
     let args = Args::parse();
 
@@ -217,8 +97,6 @@ fn main() {
         from = bt.0;
         until = bt.1;
     }
-
-    check_services(&args.services);
 
     if !(args.plain || args.follow || args.none) {
         Pager::new().setup();
