@@ -1,6 +1,7 @@
-use chrono::NaiveDateTime;
+use chrono::{Duration, NaiveDateTime};
 use glob::glob;
 use regex::{Regex, RegexBuilder};
+use std::ops::Sub;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -45,8 +46,17 @@ pub fn boot_times(offset: usize) -> (Option<NaiveDateTime>, Option<NaiveDateTime
         panic!("boot not found");
     }
     let from = NaiveDateTime::parse_from_str(&boot_lines[offset][22..41], DATE_FORMAT).unwrap();
-    let until_opt = NaiveDateTime::parse_from_str(&boot_lines[offset][50..69], DATE_FORMAT);
-    match until_opt {
+    let mut until_result = NaiveDateTime::parse_from_str(&boot_lines[offset][50..69], DATE_FORMAT);
+
+    // If no until time found, use subsequent boot time if possible
+    if until_result.is_err() && offset >= 1 {
+        let next_boot = NaiveDateTime::parse_from_str(&boot_lines[offset - 1][22..41], DATE_FORMAT);
+        if let Ok(next_boot) = next_boot {
+            until_result = Ok(next_boot.sub(Duration::nanoseconds(1)));
+        }
+    }
+
+    match until_result {
         Ok(until) => (Some(from), Some(until)),
         _ => (Some(from), None),
     }

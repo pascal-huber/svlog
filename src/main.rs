@@ -14,8 +14,8 @@ use cli::Args;
 use logline::*;
 use pager::Pager;
 use rayon::prelude::*;
-use std::process::{Command, Stdio};
 use std::collections::BTreeSet;
+use std::process::{Command, Stdio};
 use util::*;
 
 fn list_services() {

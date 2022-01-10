@@ -1,9 +1,9 @@
 use chrono::NaiveDateTime;
 use regex::Regex;
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::path::PathBuf;
-use std::collections::BTreeSet;
 
 // TODO: find out why there are only 5 digits at the end of socklog timestamps
 static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.6f";
