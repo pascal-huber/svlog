@@ -6,25 +6,6 @@ use std::fmt;
 
 static HELP_TEMPLATE: &str = "USAGE: {usage}\n{about}\n\n{all-args}";
 
-#[derive(Debug)]
-struct ServiceNotFoundError(String);
-impl fmt::Display for ServiceNotFoundError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-impl Error for ServiceNotFoundError {}
-
-fn parse_service(s: &str) -> Result<String, Box<dyn Error + Send + Sync + 'static>> {
-    if ALL_SERVICES.contains(&s.to_string()) {
-        return Ok(s.to_string());
-    }
-    return Err(Box::new(ServiceNotFoundError(format!(
-        "Service \"{}\" not found",
-        s
-    ))));
-}
-
 #[derive(Parser, Debug)]
 #[clap(about, version, author, color = ColorChoice::Never, help_template = HELP_TEMPLATE)]
 pub struct Args {
@@ -33,7 +14,7 @@ pub struct Args {
     #[clap(short, long, conflicts_with = "boot-offset")]
     pub boot: bool,
 
-    /// Follow the services for new logs
+    /// Follow the services for new logs after printing the present logs
     #[clap(short, long)]
     pub follow: bool,
 
@@ -65,10 +46,60 @@ pub struct Args {
     pub boot_offset: Option<usize>,
 
     /// Print to stdout and don't run a pager on the output
-    #[clap(short, long)]
+    #[clap(long = "no-pager")]
     pub plain: bool,
+
+    /// Max priority level emerg(0), alert(1), crit(2), err(3), warn(4),
+    /// notice(5), info(6), debug(7) or a priority range (e.g. "crit..1").
+    #[clap(short, long, parse(try_from_str = parse_priorities))]
+    pub priority: Option<(Option<u8>, Option<u8>)>,
 
     /// Services to log (all by default)
     #[clap(parse(try_from_str = parse_service))]
     pub services: Vec<String>,
+}
+
+#[derive(Debug)]
+struct InvalidArgError(String);
+impl fmt::Display for InvalidArgError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl Error for InvalidArgError {}
+
+fn parse_service(s: &str) -> Result<String, Box<dyn Error + Send + Sync + 'static>> {
+    if ALL_SERVICES.contains(&s.to_string()) {
+        return Ok(s.to_string());
+    }
+    return Err(Box::new(InvalidArgError(format!(
+        "Service \"{}\" not found",
+        s
+    ))));
+}
+
+fn parse_priorities(
+    s: &str,
+) -> Result<(Option<u8>, Option<u8>), Box<dyn Error + Send + Sync + 'static>> {
+    let priorities: Vec<&str> = s.split("..").collect();
+    if priorities.len() == 1 {
+        let y: Option<u8> = priority_value(priorities.first().unwrap());
+        if y.is_some() {
+            return Ok((None, y));
+        }
+    } else if priorities.len() == 2 {
+        let x: Option<u8> = priority_value(priorities.first().unwrap());
+        let y: Option<u8> = priority_value(priorities.last().unwrap());
+        if let Some(x_val) = x {
+            if let Some(y_val) = y {
+                if x_val <= y_val {
+                    return Ok((x, y));
+                }
+            }
+        }
+    }
+    return Err(Box::new(InvalidArgError(format!(
+        "Invalid priority \"{}\"",
+        s
+    ))));
 }

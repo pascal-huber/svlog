@@ -24,6 +24,8 @@ pub struct LogPrinter<'a> {
     jobs: usize,
     from: Option<NaiveDateTime>,
     until: Option<NaiveDateTime>,
+    min_priority: Option<u8>,
+    max_priority: Option<u8>,
 }
 
 impl<'a> LogPrinter<'a> {
@@ -33,6 +35,8 @@ impl<'a> LogPrinter<'a> {
         jobs: usize,
         from: Option<NaiveDateTime>,
         until: Option<NaiveDateTime>,
+        min_priority: Option<u8>,
+        max_priority: Option<u8>,
     ) -> LogPrinter<'a> {
         let stack: Cache<String> = Cache::new(20);
         LogPrinter {
@@ -42,6 +46,8 @@ impl<'a> LogPrinter<'a> {
             jobs,
             from,
             until,
+            min_priority,
+            max_priority,
         }
     }
 
@@ -61,10 +67,15 @@ impl<'a> LogPrinter<'a> {
         let fc = self.from;
         let uc = self.until;
         let rc = self.re.clone();
+        let minpc = self.min_priority;
+        let maxpc = self.max_priority;
         let loglines: BTreeSet<LogLine> = self
             .log_files
             .par_iter_mut()
-            .flat_map(|f| f.extract_loglines(fc, uc, &rc).into_par_iter())
+            .flat_map(|f| {
+                f.extract_loglines(fc, uc, &rc, minpc, maxpc)
+                    .into_par_iter()
+            })
             .collect();
 
         #[allow(unused_must_use)]
@@ -114,7 +125,10 @@ impl<'a> LogPrinter<'a> {
                                 for line in reader.lines().flatten() {
                                     if self.stack.push(String::from(&line)) {
                                         let logline = LogLine::new(line);
-                                        if logline.is_match(&self.re) {
+                                        if logline.is_match(&self.re)
+                                            && logline
+                                                .has_priority(self.min_priority, self.max_priority)
+                                        {
                                             println!("{}", logline);
                                         }
                                     }

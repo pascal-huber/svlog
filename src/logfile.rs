@@ -31,6 +31,8 @@ impl<'a> LogFile<'a> {
         from: Option<NaiveDateTime>,
         until: Option<NaiveDateTime>,
         re: &Option<Regex>,
+        min_priority: Option<u8>,
+        max_priority: Option<u8>,
     ) -> BTreeSet<LogLine> {
         let file = File::open(self.name).unwrap();
         let reader = BufReader::new(&file);
@@ -41,6 +43,7 @@ impl<'a> LogFile<'a> {
             .map(LogLine::new)
             .filter(|l| l.is_between(from, until))
             .filter(|l| l.is_match(re))
+            .filter(|l| l.has_priority(min_priority, max_priority))
             .collect();
 
         let meta = file.metadata();

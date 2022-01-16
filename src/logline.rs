@@ -1,3 +1,4 @@
+use crate::util::*;
 use chrono::NaiveDateTime;
 use regex::Regex;
 use std::fmt::{self, Display, Formatter};
@@ -10,6 +11,7 @@ pub struct LogLine {
     date: NaiveDateTime,
     date_str: String, // TODO: check how much time we actually save by not formatting dates.
     content: String,
+    priority: Option<u8>,
 }
 
 impl LogLine {
@@ -17,10 +19,23 @@ impl LogLine {
         let date_str: &str = &line[..25];
         let date = NaiveDateTime::parse_from_str(date_str, DATE_FORMAT).unwrap();
         let content_str: &str = &line[26..];
+        let priority_str = content_str
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .split('.')
+            .last()
+            .unwrap_or("");
+        let mut priority = priority_value(&priority_str[..priority_str.len() - 1]);
+        if priority == None {
+            // NOTE: assume "debug" if no valid priority found
+            priority = priority_value("debug");
+        }
         LogLine {
             date,
             date_str: date_str.to_string(),
             content: content_str.to_string(),
+            priority,
         }
     }
 
@@ -35,6 +50,25 @@ impl LogLine {
                 return false;
             }
         };
+        true
+    }
+
+    pub fn has_priority(&self, min_priority: Option<u8>, max_priority: Option<u8>) -> bool {
+        if let Some(self_priority) = self.priority {
+            if let Some(min_priority) = min_priority {
+                if self_priority < min_priority {
+                    return false;
+                }
+            }
+            if let Some(max_priority) = max_priority {
+                if self_priority > max_priority {
+                    return false;
+                }
+            }
+        } else {
+            // if the log  line does not have a priority, don't print it
+            return false;
+        }
         true
     }
 

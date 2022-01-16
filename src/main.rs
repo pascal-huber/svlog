@@ -44,7 +44,21 @@ fn main() {
         .iter()
         .map(|path| LogFile::new(path.to_str().unwrap()))
         .collect();
-    let mut printer = LogPrinter::new(log_files, re, args.jobs, from, until);
+
+    let (min_priority, max_priority): (Option<u8>, Option<u8>) = match args.priority {
+        Some((x, y)) => (x, y),
+        _ => (None, None),
+    };
+
+    let mut printer = LogPrinter::new(
+        log_files,
+        re,
+        args.jobs,
+        from,
+        until,
+        min_priority,
+        max_priority,
+    );
 
     if !(args.plain || args.follow || args.none) {
         Pager::new().setup();

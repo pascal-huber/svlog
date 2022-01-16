@@ -14,6 +14,28 @@ lazy_static! {
     pub static ref ALL_SERVICES: Vec<String> = all_services();
 }
 
+pub fn priority_value(s: &str) -> Option<u8> {
+    match s {
+        "0" => Some(0),
+        "emerg" => Some(0),
+        "1" => Some(1),
+        "alert" => Some(1),
+        "2" => Some(2),
+        "crit" => Some(2),
+        "3" => Some(3),
+        "err" => Some(3),
+        "4" => Some(4),
+        "warn" => Some(4),
+        "5" => Some(5),
+        "notice" => Some(5),
+        "6" => Some(6),
+        "info" => Some(6),
+        "7" => Some(7),
+        "debug" => Some(7),
+        _ => None,
+    }
+}
+
 fn all_services() -> Vec<String> {
     let mut services = Vec::new();
     let path = Path::new(LOG_DIR);
