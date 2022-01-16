@@ -50,7 +50,7 @@ pub struct Args {
     pub plain: bool,
 
     /// Max priority level emerg(0), alert(1), crit(2), err(3), warn(4),
-    /// notice(5), info(6), debug(7) or a priority range (e.g. "crit..1").
+    /// notice(5), info(6), debug(7) or a priority range (e.g. "crit..3").
     #[clap(short, long, parse(try_from_str = parse_priorities))]
     pub priority: Option<(Option<u8>, Option<u8>)>,
 
