@@ -40,45 +40,23 @@ impl LogLine {
     }
 
     pub fn is_between(&self, from: Option<NaiveDateTime>, until: Option<NaiveDateTime>) -> bool {
-        if let Some(from) = from {
-            if from > self.date {
-                return false;
-            }
-        };
-        if let Some(until) = until {
-            if until <= self.date {
-                return false;
-            }
-        };
-        true
+        match (from, until) {
+            (Some(from), _) if self.date < from => false,
+            (_, Some(until)) if self.date > until => false,
+            _ => true,
+        }
     }
 
     pub fn has_priority(&self, min_priority: Option<u8>, max_priority: Option<u8>) -> bool {
-        if let Some(self_priority) = self.priority {
-            if let Some(min_priority) = min_priority {
-                if self_priority < min_priority {
-                    return false;
-                }
-            }
-            if let Some(max_priority) = max_priority {
-                if self_priority > max_priority {
-                    return false;
-                }
-            }
-        } else {
-            // if the log  line does not have a priority, don't print it
-            return false;
+        match (self.priority, min_priority, max_priority) {
+            (Some(prio), Some(min_priority), _) if prio < min_priority => false,
+            (Some(prio), _, Some(max_priority)) if prio > max_priority => false,
+            _ => true,
         }
-        true
     }
 
     pub fn is_match(&self, re: &Option<Regex>) -> bool {
-        if let Some(re) = re {
-            if !re.is_match(&self.content[..]) {
-                return false;
-            }
-        };
-        true
+        !matches!(re, Some(re) if !re.is_match(&self.content[..]))
     }
 }
 

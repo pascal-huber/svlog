@@ -30,6 +30,7 @@ pub struct Args {
     #[clap(short, long)]
     pub none: bool,
 
+    // TODO: do we really need the option to limit the number of jobs?
     /// Number parallel jobs to process log files, by default number of logical
     /// processors (rayon's default)
     #[clap(short, long, default_value = "0")]
@@ -47,7 +48,7 @@ pub struct Args {
 
     /// Print to stdout and don't run a pager on the output
     #[clap(long = "no-pager")]
-    pub plain: bool,
+    pub no_pager: bool,
 
     /// Max priority level emerg(0), alert(1), crit(2), err(3), warn(4),
     /// notice(5), info(6), debug(7) or a priority range (e.g. "crit..3").
@@ -82,24 +83,18 @@ fn parse_priorities(
     s: &str,
 ) -> Result<(Option<u8>, Option<u8>), Box<dyn Error + Send + Sync + 'static>> {
     let priorities: Vec<&str> = s.split("..").collect();
-    if priorities.len() == 1 {
-        let y: Option<u8> = priority_value(priorities.first().unwrap());
-        if y.is_some() {
-            return Ok((None, y));
-        }
-    } else if priorities.len() == 2 {
-        let x: Option<u8> = priority_value(priorities.first().unwrap());
-        let y: Option<u8> = priority_value(priorities.last().unwrap());
-        if let Some(x_val) = x {
-            if let Some(y_val) = y {
-                if x_val <= y_val {
-                    return Ok((x, y));
-                }
-            }
-        }
+    println!("{:?}", priorities);
+    let y: Option<u8> = priority_value(priorities.last().unwrap());
+    let mut x: Option<u8> = None;
+    if priorities.len() == 2 {
+        x = priority_value(priorities.first().unwrap());
     }
-    return Err(Box::new(InvalidArgError(format!(
-        "Invalid priority \"{}\"",
-        s
-    ))));
+    match (x, y) {
+        (Some(x_val), Some(y_val)) if x_val <= y_val => Ok((x, y)),
+        (None, Some(_)) if priorities.len() == 1 => Ok((x, y)),
+        _ => Err(Box::new(InvalidArgError(format!(
+            "Invalid priority \"{}\"",
+            s
+        )))),
+    }
 }

@@ -60,7 +60,7 @@ fn main() {
         max_priority,
     );
 
-    if !(args.plain || args.follow || args.none) {
+    if !(args.no_pager || args.follow || args.none) {
         Pager::new().setup();
     }
 
