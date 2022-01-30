@@ -34,12 +34,15 @@ fn main() {
         std::process::exit(0);
     }
 
-    let mut from: Option<NaiveDateTime> = None;
-    let mut until: Option<NaiveDateTime> = None;
-    set_boot_times(&mut from, &mut until, args.boot, args.boot_offset);
+    let (from, until): (Option<NaiveDateTime>, Option<NaiveDateTime>) =
+        match (args.boot, args.boot_offset) {
+            (true, _) => boot_times(0),
+            (_, Some(offset)) => boot_times(offset),
+            _ => (None, None),
+        };
 
-    let paths: Vec<PathBuf> = file_paths(&args.services, false);
     let re: Option<Regex> = build_regex(&args.filter);
+    let paths: Vec<PathBuf> = file_paths(&args.services);
     let log_files: Vec<LogFile> = paths
         .iter()
         .map(|path| LogFile::new(path.to_str().unwrap()))
@@ -60,17 +63,17 @@ fn main() {
         max_priority,
     );
 
-    if !(args.no_pager || args.follow || args.none) {
+    if !(args.no_pager || args.follow) {
         Pager::new().setup();
     }
 
-    if !args.none {
-        printer.print_logs();
-    } else {
-        printer.jump_to_end();
+    match args.lines {
+        Some(n) if n.unwrap() == 0 => printer.jump_to_end(),
+        Some(n) => printer.print_logs(n),
+        _ => printer.print_logs(None),
     }
 
-    if args.follow || args.none {
+    if args.follow {
         printer.watch_logs();
     }
 }

@@ -19,7 +19,7 @@ use std::sync::mpsc::channel;
 
 pub struct LogPrinter<'a> {
     log_files: Vec<LogFile<'a>>,
-    stack: Cache<String>,
+    cache: Cache<String>,
     re: Option<Regex>,
     jobs: usize,
     from: Option<NaiveDateTime>,
@@ -38,10 +38,10 @@ impl<'a> LogPrinter<'a> {
         min_priority: Option<u8>,
         max_priority: Option<u8>,
     ) -> LogPrinter<'a> {
-        let stack: Cache<String> = Cache::new(20);
+        let cache: Cache<String> = Cache::new(20);
         LogPrinter {
             log_files,
-            stack,
+            cache,
             re,
             jobs,
             from,
@@ -57,13 +57,13 @@ impl<'a> LogPrinter<'a> {
         }
     }
 
-    pub fn print_logs(&mut self) {
+    pub fn print_logs(&mut self, lines: Option<usize>) {
         rayon::ThreadPoolBuilder::new()
             .num_threads(self.jobs)
             .build_global()
             .unwrap();
 
-        // TODO: can those 3 copies/clones be avoided?
+        // TODO: can those copies/clones be avoided?
         let fc = self.from;
         let uc = self.until;
         let rc = self.re.clone();
@@ -78,9 +78,21 @@ impl<'a> LogPrinter<'a> {
             })
             .collect();
 
-        #[allow(unused_must_use)]
-        for logline in loglines {
-            stdoutln!("{}", logline);
+        match lines {
+            Some(n) =>
+            {
+                #[allow(unused_must_use)]
+                for logline in loglines.iter().rev().take(n).rev().into_iter() {
+                    stdoutln!("{}", logline);
+                }
+            }
+            _ =>
+            {
+                #[allow(unused_must_use)]
+                for logline in loglines {
+                    stdoutln!("{}", logline);
+                }
+            }
         }
     }
 
@@ -123,7 +135,7 @@ impl<'a> LogPrinter<'a> {
                             let res = reader.seek(SeekFrom::Start(entry.position));
                             if res.is_ok() {
                                 for line in reader.lines().flatten() {
-                                    if self.stack.push(String::from(&line)) {
+                                    if self.cache.push(String::from(&line)) {
                                         let logline = LogLine::new(line);
                                         if logline.is_match(&self.re)
                                             && logline

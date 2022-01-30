@@ -13,7 +13,9 @@ impl<T: PartialEq> Cache<T> {
         }
     }
 
-    // returns false if item already in list
+    // Adds the item to the cache. If the item was not in cache already, the
+    // return value is true. If the item was already present, it is moved to the
+    // front (LRU) and the return value is false.
     pub fn push(&mut self, item: T) -> bool {
         let mut result: bool = true;
         if self.list.contains(&item) {

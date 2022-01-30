@@ -5,10 +5,9 @@ use std::ops::Sub;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+pub static LOG_DIR: &str = "/var/log/socklog/";
 static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 static GLOB_ALL_FILES: &[&str] = &["/current", "/*.[su]"];
-static GLOB_CURRENT_FILES: &[&str] = &["/current"];
-pub static LOG_DIR: &str = "/var/log/socklog/";
 
 lazy_static! {
     pub static ref ALL_SERVICES: Vec<String> = all_services();
@@ -56,40 +55,28 @@ pub fn build_regex(pattern: &Option<String>) -> Option<Regex> {
     })
 }
 
-pub fn file_paths(services: &[String], only_current: bool) -> Vec<PathBuf> {
-    let file_globs = match only_current {
-        true => GLOB_CURRENT_FILES,
-        false => GLOB_ALL_FILES,
-    };
+pub fn file_paths(services: &[String]) -> Vec<PathBuf> {
     let mut service_globs = services.to_owned();
     if service_globs.is_empty() {
         service_globs.push(String::from("**"));
     }
     service_globs
         .iter()
-        .flat_map(|g| service_file_paths(g, file_globs).into_iter())
+        .flat_map(|g| service_file_paths(g, GLOB_ALL_FILES).into_iter())
         .collect()
 }
 
-pub fn set_boot_times(
-    from: &mut Option<NaiveDateTime>,
-    until: &mut Option<NaiveDateTime>,
-    boot: bool,
-    boot_offset: Option<usize>,
-) {
-    if boot {
-        let bt = boot_times(0);
-        *from = bt.0;
-        *until = bt.1;
-    }
-    if let Some(offset) = boot_offset {
-        let bt = boot_times(offset);
-        *from = bt.0;
-        *until = bt.1;
+fn boot_time_tuple(line: &str) -> (Option<NaiveDateTime>, Option<NaiveDateTime>) {
+    let from = NaiveDateTime::parse_from_str(&line[22..41], DATE_FORMAT);
+    let until = NaiveDateTime::parse_from_str(&line[50..69], DATE_FORMAT);
+    match (from, until) {
+        (Ok(x), Ok(y)) => (Some(x), Some(y)),
+        (Ok(x), Err(_)) => (Some(x), None),
+        _ => (None, None),
     }
 }
 
-fn boot_times(offset: usize) -> (Option<NaiveDateTime>, Option<NaiveDateTime>) {
+fn boot_time_lines() -> Vec<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
     let output = Command::new("last")
         .arg("-a")
         .arg("--time-format")
@@ -100,28 +87,29 @@ fn boot_times(offset: usize) -> (Option<NaiveDateTime>, Option<NaiveDateTime>) {
         .unwrap();
     let output_str = String::from_utf8(output.stdout).unwrap();
     let output_lines: Vec<&str> = output_str.split('\n').collect();
-    let boot_lines: Vec<&&str> = output_lines
+    output_lines
         .iter()
         .filter(|x| x.contains("system boot"))
-        .collect();
+        .map(|x| boot_time_tuple(x))
+        .collect()
+}
 
-    if boot_lines.len() - 1 < offset {
+pub fn boot_times(offset: usize) -> (Option<NaiveDateTime>, Option<NaiveDateTime>) {
+    let boot_times = boot_time_lines();
+    if boot_times.len() - 1 < offset {
         panic!("boot not found");
     }
-    let from = NaiveDateTime::parse_from_str(&boot_lines[offset][22..41], DATE_FORMAT).unwrap();
-    let mut until_result = NaiveDateTime::parse_from_str(&boot_lines[offset][50..69], DATE_FORMAT);
-
-    // If no until time found, use subsequent boot time if possible
-    if until_result.is_err() && offset >= 1 {
-        let next_boot = NaiveDateTime::parse_from_str(&boot_lines[offset - 1][22..41], DATE_FORMAT);
-        if let Ok(next_boot) = next_boot {
-            until_result = Ok(next_boot.sub(Duration::nanoseconds(1)));
+    match boot_times[offset] {
+        // NOTE: If no shutdown time is found (e.g. system crash), the
+        // subsequent boot time is used.
+        (Some(from), None) if offset > 0 => {
+            let until = boot_times[offset - 1].0;
+            match until {
+                Some(x) => (Some(from), Some(x.sub(Duration::nanoseconds(1)))),
+                _ => (Some(from), until),
+            }
         }
-    }
-
-    match until_result {
-        Ok(until) => (Some(from), Some(until)),
-        _ => (Some(from), None),
+        _ => boot_times[offset],
     }
 }
 
