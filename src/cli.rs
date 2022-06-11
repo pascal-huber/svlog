@@ -1,4 +1,5 @@
-use crate::util::*;
+use crate::printer::LogPriority;
+use crate::util::service::*;
 use clap::ColorChoice;
 use clap::Parser;
 use std::error::Error;
@@ -7,7 +8,14 @@ use std::fmt;
 static HELP_TEMPLATE: &str = "USAGE: {usage}\n{about}\n\n{all-args}";
 
 #[derive(Parser, Debug)]
-#[clap(about, version, author, color = ColorChoice::Never, help_template = HELP_TEMPLATE)]
+#[clap(
+    about,
+    author,
+    color = ColorChoice::Never,
+    help_template = HELP_TEMPLATE,
+    term_width = 80,
+    version
+)]
 pub struct Args {
     /// Only show logs since last boot (short for --boot-offset 0 but allowed in
     /// combination with --follow)
@@ -58,13 +66,13 @@ pub struct Args {
     #[clap(long = "no-pager")]
     pub no_pager: bool,
 
-    /// Specify the maximum priority (e.g. "warn") or a range of priorities
+    /// Specify the priority (e.g. "warn") or a range of priorities
     /// (e.g. "warn..5") to display. A priority can be specified either as text
     /// or number. Available priorities: emerg(0), alert(1), crit(2), err(3),
     /// warn(4), notice(5), info(6), debug(7).
-    #[clap(short, long, parse(try_from_str = parse_priorities))]
-    pub priority: Option<(Option<u8>, Option<u8>)>,
-
+    #[clap(short, long, parse(try_from_str = parse_priorities), default_value = "0..7")]
+    pub priority: (LogPriority, LogPriority),
+    // pub priority: Option<(Option<u8>, Option<u8>)>,
     /// Services to log (all by default)
     #[clap(parse(try_from_str = parse_service))]
     pub services: Vec<String>,
@@ -105,20 +113,37 @@ fn parse_service(s: &str) -> Result<String, Box<dyn Error + Send + Sync + 'stati
 
 fn parse_priorities(
     s: &str,
-) -> Result<(Option<u8>, Option<u8>), Box<dyn Error + Send + Sync + 'static>> {
+) -> Result<(LogPriority, LogPriority), Box<dyn Error + Send + Sync + 'static>> {
     let priorities: Vec<&str> = s.split("..").collect();
-    let val_1: Option<u8> = priority_value(priorities.last().unwrap());
-    let mut val_2: Option<u8> = None;
-    if priorities.len() == 2 {
-        val_2 = priority_value(priorities.first().unwrap());
-    }
-    match (val_1, val_2) {
-        (Some(x), Some(y)) if x <= y => Ok((val_1, val_2)),
-        (Some(x), Some(y)) if x >= y => Ok((val_2, val_1)),
-        (Some(_), _) if priorities.len() == 1 => Ok((val_2, val_1)),
-        _ => Err(Box::new(InvalidArgError(format!(
+    let return_value = match priorities.len() {
+        1 => {
+            let p = LogPriority::from_str(priorities.first().unwrap());
+            p.map(|p| (p, p))
+        }
+        2 => {
+            let p1 = *priorities.first().unwrap();
+            let priority_1 = match p1 {
+                "" => Some(LogPriority::min()),
+                _ => LogPriority::from_str(p1),
+            };
+            let p2 = *priorities.last().unwrap();
+            let priority_2 = match p2 {
+                "" => Some(LogPriority::max()),
+                _ => LogPriority::from_str(p2),
+            };
+            match (priority_1, priority_2) {
+                (Some(priority_1), Some(priority_2)) => Some((priority_1, priority_2)),
+                _ => None,
+            }
+        }
+        _ => None,
+    };
+    if let Some(return_value) = return_value {
+        Ok(return_value)
+    } else {
+        Err(Box::new(InvalidArgError(format!(
             "Invalid priority \"{}\"",
             s
-        )))),
+        ))))
     }
 }

@@ -1,0 +1,4 @@
+# print default config:
+#   rustfmt --print-config default
+
+reorder_imports = true

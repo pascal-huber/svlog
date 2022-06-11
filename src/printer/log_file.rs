@@ -1,5 +1,7 @@
-use crate::logline::*;
+use crate::printer::log_line::*;
 
+use crate::printer::LogPriority;
+use crate::SvLogError;
 use chrono::NaiveDateTime;
 use regex::Regex;
 use std::collections::BTreeSet;
@@ -10,8 +12,8 @@ use std::io::{prelude::*, BufReader};
 pub struct LogFile<'a> {
     pub name: &'a str,
     pub position: u64,
-    // TODO: maybe add BufReader/File to LogFile
-    //pub reader: BufReader<File>,
+    // TODO: check if I should add BufReader or File to LogFile
+    // pub reader: BufReader<File>,
 }
 
 impl<'a> LogFile<'a> {
@@ -31,25 +33,26 @@ impl<'a> LogFile<'a> {
         from: Option<NaiveDateTime>,
         until: Option<NaiveDateTime>,
         re: &Option<Regex>,
-        min_priority: Option<u8>,
-        max_priority: Option<u8>,
-    ) -> BTreeSet<LogLine> {
+        min_priority: LogPriority,
+        max_priority: LogPriority,
+    ) -> Result<BTreeSet<LogLine>, SvLogError> {
         let file = File::open(self.name).unwrap();
         let reader = BufReader::new(&file);
-
-        let loglines: BTreeSet<LogLine> = reader
+        let mut log_lines: BTreeSet<LogLine> = reader
             .lines()
             .flatten()
             .map(LogLine::new)
+            .collect::<Result<BTreeSet<LogLine>, SvLogError>>()?;
+        log_lines = log_lines
+            .iter()
             .filter(|l| l.is_between(from, until))
             .filter(|l| l.is_match(re))
             .filter(|l| l.has_priority(min_priority, max_priority))
+            .cloned()
             .collect();
-
         let meta = file.metadata();
         let length = meta.unwrap().len();
         self.position = length;
-
-        loglines
+        Ok(log_lines)
     }
 }
