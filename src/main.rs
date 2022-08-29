@@ -13,6 +13,7 @@ use chrono::{FixedOffset, Local, NaiveDateTime, Offset, TimeZone, Utc};
 use clap::Parser;
 use cli::Args;
 use error::*;
+use printer::LogSettings;
 use regex::Regex;
 use util::{boottime::*, regex::*, service::*};
 
@@ -25,7 +26,7 @@ fn main() {
     }
 }
 
-fn try_main(args: &Args) -> Result<(), SvLogError> {
+fn try_main(args: &Args) -> SvLogResult<()> {
     if args.list {
         list_services();
         std::process::exit(0);
@@ -38,10 +39,9 @@ fn try_main(args: &Args) -> Result<(), SvLogError> {
         .collect();
     let use_pager = !args.no_pager && !args.follow;
     let (time_offset, since_time_utc, until_time_utc) = extract_time_info(args)?;
-    let mut printer = LogPrinter::new(
-        log_files,
+
+    let log_settings = LogSettings::new(
         re,
-        args.jobs,
         since_time_utc,
         until_time_utc,
         time_offset,
@@ -49,6 +49,7 @@ fn try_main(args: &Args) -> Result<(), SvLogError> {
         args.priority.1,
         use_pager,
     );
+    let mut printer = LogPrinter::new(log_files, &log_settings, args.jobs);
     match args.lines {
         Some(n) if n.unwrap() == 0 => printer.jump_to_end(),
         Some(n) => printer.print_logs(n)?,
@@ -63,7 +64,7 @@ fn try_main(args: &Args) -> Result<(), SvLogError> {
 // TODO: check if datetime and timezone info can be extracted with clap
 fn extract_time_info(
     args: &Args,
-) -> Result<(FixedOffset, Option<NaiveDateTime>, Option<NaiveDateTime>), SvLogError> {
+) -> SvLogResult<(FixedOffset, Option<NaiveDateTime>, Option<NaiveDateTime>)> {
     let time_offset = if args.utc {
         Utc::now().offset().fix()
     } else {

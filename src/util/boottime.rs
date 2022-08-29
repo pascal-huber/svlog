@@ -8,9 +8,7 @@ use snafu::ResultExt;
 
 use crate::{error::*, true_or_err, util::settings::*, SvLogError};
 
-pub fn boot_times(
-    offset: usize,
-) -> Result<(Option<NaiveDateTime>, Option<NaiveDateTime>), SvLogError> {
+pub fn boot_times(offset: usize) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
     let boot_time_lines = boot_time_lines()?;
     true_or_err!(
         boot_time_lines.len() > offset,
@@ -26,7 +24,7 @@ pub fn boot_times(
     Ok(result)
 }
 
-fn boot_time_lines() -> Result<Vec<String>, SvLogError> {
+fn boot_time_lines() -> SvLogResult<Vec<String>> {
     let output = Command::new("last")
         .arg("-a")
         .arg("--time-format")
@@ -46,9 +44,7 @@ fn boot_time_lines() -> Result<Vec<String>, SvLogError> {
     Ok(boot_lines)
 }
 
-fn boot_time_tuple(
-    line: String,
-) -> Result<(Option<NaiveDateTime>, Option<NaiveDateTime>), SvLogError> {
+fn boot_time_tuple(line: String) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
     true_or_err!(line.len() > 41, SvLogError::BootTimeNotFound {});
     let from =
         NaiveDateTime::parse_from_str(&line[22..41], DATE_FORMAT).context(ParsingChronoSnafu {

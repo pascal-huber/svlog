@@ -18,7 +18,7 @@ pub struct LogLine {
 }
 
 impl LogLine {
-    pub fn new(line: String) -> Result<Self, SvLogError> {
+    pub fn new(line: String) -> SvLogResult<Self> {
         true_or_err!(line.len() >= 27, SvLogError::ParsingLogLineError { line });
         let date_str: &str = &line[..25];
         let date = NaiveDateTime::parse_from_str(date_str, DATE_FORMAT)
@@ -33,23 +33,23 @@ impl LogLine {
         })
     }
 
-    pub fn is_between(&self, from: Option<NaiveDateTime>, until: Option<NaiveDateTime>) -> bool {
+    pub fn is_between(&self, from: &Option<NaiveDateTime>, until: &Option<NaiveDateTime>) -> bool {
         match (from, until) {
-            (Some(from), _) if self.date < from => false,
-            (_, Some(until)) if self.date > until => false,
+            (Some(from), _) if self.date < *from => false,
+            (_, Some(until)) if self.date > *until => false,
             _ => true,
         }
     }
 
-    pub fn has_priority(&self, min_priority: LogPriority, max_priority: LogPriority) -> bool {
-        self.priority >= min_priority && self.priority <= max_priority
+    pub fn has_priority(&self, min_priority: &LogPriority, max_priority: &LogPriority) -> bool {
+        self.priority >= *min_priority && self.priority <= *max_priority
     }
 
     pub fn is_match(&self, re: &Option<Regex>) -> bool {
         !matches!(re, Some(re) if !re.is_match(&self.content[..]))
     }
 
-    pub fn format_with_offset(&self, time_offset: FixedOffset) -> String {
+    pub fn format_with_offset(&self, time_offset: &FixedOffset) -> String {
         let local_time = time_offset.from_utc_datetime(&self.date);
         format!(
             "{}.{:0>5} {}",

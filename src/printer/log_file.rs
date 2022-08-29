@@ -4,13 +4,8 @@ use std::{
     io::{prelude::*, BufReader},
 };
 
-use chrono::NaiveDateTime;
-use regex::Regex;
-
-use crate::{
-    printer::{log_line::*, LogPriority},
-    SvLogError, SvLogResult,
-};
+use super::LogSettings;
+use crate::{printer::log_line::*, SvLogError, SvLogResult};
 
 #[derive(Copy, Clone)]
 pub struct LogFile<'a> {
@@ -34,11 +29,12 @@ impl<'a> LogFile<'a> {
 
     pub fn extract_loglines(
         &mut self,
-        from: Option<NaiveDateTime>,
-        until: Option<NaiveDateTime>,
-        re: &Option<Regex>,
-        min_priority: LogPriority,
-        max_priority: LogPriority,
+        log_settings: &LogSettings,
+        // from: Option<NaiveDateTime>,
+        // until: Option<NaiveDateTime>,
+        // re: &Option<Regex>,
+        // min_priority: LogPriority,
+        // max_priority: LogPriority,
     ) -> SvLogResult<BTreeSet<LogLine>> {
         let file = File::open(self.name).unwrap();
         let reader = BufReader::new(&file);
@@ -49,9 +45,9 @@ impl<'a> LogFile<'a> {
             .collect::<Result<BTreeSet<LogLine>, SvLogError>>()?;
         log_lines = log_lines
             .iter()
-            .filter(|l| l.is_between(from, until))
-            .filter(|l| l.is_match(re))
-            .filter(|l| l.has_priority(min_priority, max_priority))
+            .filter(|l| l.is_between(&log_settings.since, &log_settings.until))
+            .filter(|l| l.is_match(&log_settings.re))
+            .filter(|l| l.has_priority(&log_settings.min_priority, &log_settings.max_priority))
             .cloned()
             .collect();
         let meta = file.metadata();

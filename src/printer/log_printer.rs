@@ -7,16 +7,15 @@ use std::{
 };
 
 use calm_io::{pipefail, stdoutln};
-use chrono::{FixedOffset, NaiveDateTime};
 use notify::{raw_watcher, Op, RawEvent, RecursiveMode, Watcher};
 use pager::Pager;
 use rayon::prelude::*;
-use regex::Regex;
 use snafu::prelude::*;
 
+use super::LogSettings;
 use crate::{
     error::*,
-    printer::{log_file::*, log_line::*, LogPriority},
+    printer::{log_file::*, log_line::*},
     util::{cache::*, settings::*},
     SvLogResult,
 };
@@ -24,41 +23,23 @@ use crate::{
 pub struct LogPrinter<'a> {
     log_files: Vec<LogFile<'a>>,
     cache: Cache<String>,
-    re: Option<Regex>,
+    log_settings: &'a LogSettings,
     jobs: usize,
-    from: Option<NaiveDateTime>,
-    until: Option<NaiveDateTime>,
-    time_offset: FixedOffset,
-    min_priority: LogPriority,
-    max_priority: LogPriority,
-    use_pager: bool,
 }
 
 impl<'a> LogPrinter<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         log_files: Vec<LogFile<'a>>,
-        re: Option<Regex>,
+        log_settings: &'a LogSettings,
         jobs: usize,
-        from: Option<NaiveDateTime>,
-        until: Option<NaiveDateTime>,
-        time_offset: FixedOffset,
-        min_priority: LogPriority,
-        max_priority: LogPriority,
-        use_pager: bool,
     ) -> LogPrinter<'a> {
         let cache: Cache<String> = Cache::new(20);
         LogPrinter {
             log_files,
             cache,
-            re,
+            log_settings,
             jobs,
-            from,
-            until,
-            time_offset,
-            min_priority,
-            max_priority,
-            use_pager,
         }
     }
 
@@ -72,7 +53,7 @@ impl<'a> LogPrinter<'a> {
         let log_lines = self.retrieve_log_lines(lines)?;
         let lines: BTreeSet<String> = log_lines
             .par_iter()
-            .map(|log_line| log_line.format_with_offset(self.time_offset))
+            .map(|log_line| log_line.format_with_offset(&self.log_settings.time_offset))
             .collect::<BTreeSet<String>>();
         self.print_lines(lines).context(PrintLinesSnafu {})
     }
@@ -104,7 +85,7 @@ impl<'a> LogPrinter<'a> {
 
     #[pipefail]
     fn print_lines(&mut self, lines: BTreeSet<String>) -> std::io::Result<()> {
-        if self.use_pager {
+        if self.log_settings.use_pager {
             Pager::new().setup();
         }
         for line in lines {
@@ -118,24 +99,10 @@ impl<'a> LogPrinter<'a> {
             .num_threads(self.jobs)
             .build_global()
             .unwrap();
-        let from_copy = self.from;
-        let until_copy = self.until;
-        let re_clone = self.re.clone();
-        let min_priority_copy = self.min_priority;
-        let max_priority_copy = self.max_priority;
-        // TODO: check if flat_map can be used instead of map and flatten
         let mut log_lines: BTreeSet<LogLine> = self
             .log_files
             .par_iter_mut()
-            .map(|f| {
-                f.extract_loglines(
-                    from_copy,
-                    until_copy,
-                    &re_clone,
-                    min_priority_copy,
-                    max_priority_copy,
-                )
-            })
+            .map(|f| f.extract_loglines(self.log_settings))
             .collect::<Result<BTreeSet<_>, SvLogError>>()?
             .into_par_iter()
             .flatten()
@@ -178,8 +145,11 @@ impl<'a> LogPrinter<'a> {
         for line in reader.lines().flatten() {
             if self.cache.push(String::from(&line)) {
                 let log_line = LogLine::new(line)?;
-                if log_line.is_match(&self.re)
-                    && log_line.has_priority(self.min_priority, self.max_priority)
+                if log_line.is_match(&self.log_settings.re)
+                    && log_line.has_priority(
+                        &self.log_settings.min_priority,
+                        &self.log_settings.max_priority,
+                    )
                 {
                     println!("{}", log_line);
                 }
