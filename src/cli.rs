@@ -88,7 +88,8 @@ pub struct Args {
     /// Only consider logs from this time on forward. Possible values: "today",
     /// "yesterday", "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DD HH:MM", "YYYY-MM-DD",
     /// "HH:MM:SS", "HH:MM". If not date is specified, "today" is assumed. If no
-    /// hour/minute/second is specified, 0 is assumed.
+    /// hour/minute/second is specified, 0 is assumed. Furthermore, this option
+    /// respects the --utc flag.
     #[clap(
         short,
         long,
@@ -101,6 +102,7 @@ pub struct Args {
     /// "today", "yesterday", "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DD HH:MM",
     /// "YYYY-MM-DD", "HH:MM:SS", "HH:MM". If not date is specified, "today" is
     /// assumed. If no hour/minute/second is specified, 0 is assumed.
+    /// Furthermore, this option respects the --utc flag.
     #[clap(
         short,
         long,
@@ -187,7 +189,7 @@ fn parse_priorities(
 // until-time represents the last point in time included in the logs
 // since-time represents the first point in time included in the logs
 //
-// option                       since   until
+// value                        since   until
 // today               today 00:00:00   + 1.day - 1.ns
 // yesterday       yesterday 00:00:00   + 1.day - 1.ns
 // xxxx-yy-zz     xxxx-yy-zz 00:00:00   + 1.day - 1.ns

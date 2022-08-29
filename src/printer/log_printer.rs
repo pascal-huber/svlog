@@ -103,7 +103,7 @@ impl<'a> LogPrinter<'a> {
             .log_files
             .par_iter_mut()
             .map(|f| f.extract_loglines(self.log_settings))
-            .collect::<Result<BTreeSet<_>, SvLogError>>()?
+            .collect::<SvLogResult<BTreeSet<_>>>()?
             .into_par_iter()
             .flatten()
             .collect();

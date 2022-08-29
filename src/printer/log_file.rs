@@ -5,14 +5,13 @@ use std::{
 };
 
 use super::LogSettings;
-use crate::{printer::log_line::*, SvLogError, SvLogResult};
+use crate::{printer::log_line::*, SvLogResult};
 
 #[derive(Copy, Clone)]
 pub struct LogFile<'a> {
     pub name: &'a str,
     pub position: u64,
-    // TODO: check if I should add BufReader or File to LogFile
-    // pub reader: BufReader<File>,
+    // TODO: check if I should add BufReader<File> or File to LogFile
 }
 
 impl<'a> LogFile<'a> {
@@ -30,20 +29,15 @@ impl<'a> LogFile<'a> {
     pub fn extract_loglines(
         &mut self,
         log_settings: &LogSettings,
-        // from: Option<NaiveDateTime>,
-        // until: Option<NaiveDateTime>,
-        // re: &Option<Regex>,
-        // min_priority: LogPriority,
-        // max_priority: LogPriority,
     ) -> SvLogResult<BTreeSet<LogLine>> {
         let file = File::open(self.name).unwrap();
         let reader = BufReader::new(&file);
-        let mut log_lines: BTreeSet<LogLine> = reader
+        let log_lines: BTreeSet<LogLine> = reader
             .lines()
             .flatten()
             .map(LogLine::new)
-            .collect::<Result<BTreeSet<LogLine>, SvLogError>>()?;
-        log_lines = log_lines
+            .collect::<SvLogResult<BTreeSet<LogLine>>>()?
+            // TODO: check out the unstable "try_collect"
             .iter()
             .filter(|l| l.is_between(&log_settings.since, &log_settings.until))
             .filter(|l| l.is_match(&log_settings.re))
