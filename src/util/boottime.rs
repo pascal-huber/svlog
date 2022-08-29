@@ -1,10 +1,12 @@
-use crate::error::*;
-use crate::util::settings::*;
-use crate::{true_or_err, SvLogError};
+use std::{
+    ops::Sub,
+    process::{Command, Stdio},
+};
+
 use chrono::{Duration, NaiveDateTime};
 use snafu::ResultExt;
-use std::ops::Sub;
-use std::process::{Command, Stdio};
+
+use crate::{error::*, true_or_err, util::settings::*, SvLogError};
 
 pub fn boot_times(
     offset: usize,

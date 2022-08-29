@@ -1,19 +1,19 @@
-use crate::error::*;
-use crate::printer::LogPriority;
-use crate::true_or_err;
-use chrono::NaiveDateTime;
-use regex::Regex;
-use snafu::prelude::*;
 use std::fmt::{self, Display, Formatter};
 
+use chrono::{FixedOffset, NaiveDateTime, TimeZone, Timelike};
+use regex::Regex;
+use snafu::prelude::*;
+
+use crate::{error::*, printer::LogPriority, true_or_err};
+
 // NOTE: Socklog timestamps only have 5 digits at the end. Therefore the last is always 0.
-static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.6f";
+static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S.%f";
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct LogLine {
-    date: NaiveDateTime,
+    pub date: NaiveDateTime,
     date_str: String,
-    content: String,
+    pub content: String,
     priority: LogPriority,
 }
 
@@ -47,6 +47,16 @@ impl LogLine {
 
     pub fn is_match(&self, re: &Option<Regex>) -> bool {
         !matches!(re, Some(re) if !re.is_match(&self.content[..]))
+    }
+
+    pub fn format_with_offset(&self, time_offset: FixedOffset) -> String {
+        let local_time = time_offset.from_utc_datetime(&self.date);
+        format!(
+            "{}.{:0>5} {}",
+            local_time.format("%Y-%m-%dT%H:%M:%S"),
+            local_time.nanosecond(),
+            self.content
+        )
     }
 
     fn read_priority(content_str: &str) -> LogPriority {

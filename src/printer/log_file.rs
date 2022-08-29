@@ -1,12 +1,16 @@
-use crate::printer::log_line::*;
+use std::{
+    collections::BTreeSet,
+    fs::File,
+    io::{prelude::*, BufReader},
+};
 
-use crate::printer::LogPriority;
-use crate::SvLogError;
 use chrono::NaiveDateTime;
 use regex::Regex;
-use std::collections::BTreeSet;
-use std::fs::File;
-use std::io::{prelude::*, BufReader};
+
+use crate::{
+    printer::{log_line::*, LogPriority},
+    SvLogError, SvLogResult,
+};
 
 #[derive(Copy, Clone)]
 pub struct LogFile<'a> {
@@ -35,7 +39,7 @@ impl<'a> LogFile<'a> {
         re: &Option<Regex>,
         min_priority: LogPriority,
         max_priority: LogPriority,
-    ) -> Result<BTreeSet<LogLine>, SvLogError> {
+    ) -> SvLogResult<BTreeSet<LogLine>> {
         let file = File::open(self.name).unwrap();
         let reader = BufReader::new(&file);
         let mut log_lines: BTreeSet<LogLine> = reader

@@ -1,8 +1,11 @@
-use snafu::Snafu;
 use std::sync::mpsc::RecvError;
+
+use snafu::Snafu;
 
 // same error, different source
 // https://github.com/shepmaster/snafu/issues/123
+
+pub type SvLogResult<T> = Result<T, SvLogError>;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -15,6 +18,9 @@ pub enum SvLogError {
         message: String,
         source: std::io::Error,
     },
+
+    #[snafu(display("PrintLinesError: failed to print lines"))]
+    PrintLines { source: std::io::Error },
 
     #[snafu(display("Failed to parse timestamp in: {line}"))]
     ParsingChronoError {

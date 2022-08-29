@@ -1,6 +1,8 @@
-use crate::util::settings::*;
-use glob::glob;
 use std::path::{Path, PathBuf};
+
+use glob::glob;
+
+use crate::util::settings::*;
 
 lazy_static! {
     pub static ref ALL_SERVICES: Vec<String> = all_services();

@@ -1,21 +1,25 @@
-use crate::error::*;
-use crate::printer::log_file::*;
-use crate::printer::log_line::*;
-use crate::util::cache::*;
+use std::{
+    collections::BTreeSet,
+    fs::File,
+    io::{BufRead, BufReader, Seek, SeekFrom},
+    path::Path,
+    sync::mpsc::channel,
+};
 
-use crate::printer::LogPriority;
-use crate::util::settings::*;
-use chrono::NaiveDateTime;
+use calm_io::{pipefail, stdoutln};
+use chrono::{FixedOffset, NaiveDateTime};
 use notify::{raw_watcher, Op, RawEvent, RecursiveMode, Watcher};
 use pager::Pager;
 use rayon::prelude::*;
 use regex::Regex;
 use snafu::prelude::*;
-use std::collections::BTreeSet;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Seek, SeekFrom};
-use std::path::Path;
-use std::sync::mpsc::channel;
+
+use crate::{
+    error::*,
+    printer::{log_file::*, log_line::*, LogPriority},
+    util::{cache::*, settings::*},
+    SvLogResult,
+};
 
 pub struct LogPrinter<'a> {
     log_files: Vec<LogFile<'a>>,
@@ -24,6 +28,7 @@ pub struct LogPrinter<'a> {
     jobs: usize,
     from: Option<NaiveDateTime>,
     until: Option<NaiveDateTime>,
+    time_offset: FixedOffset,
     min_priority: LogPriority,
     max_priority: LogPriority,
     use_pager: bool,
@@ -37,6 +42,7 @@ impl<'a> LogPrinter<'a> {
         jobs: usize,
         from: Option<NaiveDateTime>,
         until: Option<NaiveDateTime>,
+        time_offset: FixedOffset,
         min_priority: LogPriority,
         max_priority: LogPriority,
         use_pager: bool,
@@ -49,6 +55,7 @@ impl<'a> LogPrinter<'a> {
             jobs,
             from,
             until,
+            time_offset,
             min_priority,
             max_priority,
             use_pager,
@@ -61,25 +68,16 @@ impl<'a> LogPrinter<'a> {
         }
     }
 
-    pub fn print_logs(&mut self, lines: Option<usize>) -> Result<(), SvLogError> {
-        let log_lines = self.retrieve_log_lines()?;
-        if self.use_pager {
-            Pager::new().setup();
-        }
-        let start = if let Some(n) = lines {
-            log_lines.len() - n
-        } else {
-            0
-        };
-        // FIXME: allow only pipe errors, other erros should be delegated
-        #[allow(unused_must_use)]
-        for log_line in log_lines.iter().skip(start) {
-            println!("{}", log_line);
-        }
-        Ok(())
+    pub fn print_logs(&mut self, lines: Option<usize>) -> SvLogResult<()> {
+        let log_lines = self.retrieve_log_lines(lines)?;
+        let lines: BTreeSet<String> = log_lines
+            .par_iter()
+            .map(|log_line| log_line.format_with_offset(self.time_offset))
+            .collect::<BTreeSet<String>>();
+        self.print_lines(lines).context(PrintLinesSnafu {})
     }
 
-    pub fn watch_logs(&mut self) -> Result<(), SvLogError> {
+    pub fn watch_logs(&mut self) -> SvLogResult<()> {
         let (tx, rx) = channel();
         let mut watcher = raw_watcher(tx).context(WatchFilesNotifySnafu {
             message: "Failed to create watcher".to_string(),
@@ -104,7 +102,18 @@ impl<'a> LogPrinter<'a> {
         }
     }
 
-    fn retrieve_log_lines(&mut self) -> Result<BTreeSet<LogLine>, SvLogError> {
+    #[pipefail]
+    fn print_lines(&mut self, lines: BTreeSet<String>) -> std::io::Result<()> {
+        if self.use_pager {
+            Pager::new().setup();
+        }
+        for line in lines {
+            stdoutln!("{line}")?;
+        }
+        Ok(())
+    }
+
+    fn retrieve_log_lines(&mut self, lines: Option<usize>) -> SvLogResult<BTreeSet<LogLine>> {
         rayon::ThreadPoolBuilder::new()
             .num_threads(self.jobs)
             .build_global()
@@ -114,7 +123,8 @@ impl<'a> LogPrinter<'a> {
         let re_clone = self.re.clone();
         let min_priority_copy = self.min_priority;
         let max_priority_copy = self.max_priority;
-        let log_lines: BTreeSet<LogLine> = self
+        // TODO: check if flat_map can be used instead of map and flatten
+        let mut log_lines: BTreeSet<LogLine> = self
             .log_files
             .par_iter_mut()
             .map(|f| {
@@ -130,10 +140,17 @@ impl<'a> LogPrinter<'a> {
             .into_par_iter()
             .flatten()
             .collect();
+        if let Some(n) = lines {
+            log_lines = log_lines
+                .iter()
+                .skip(log_lines.len() - n)
+                .cloned()
+                .collect();
+        }
         Ok(log_lines)
     }
 
-    fn handle_write_event(&mut self, path: &Path) -> Result<(), SvLogError> {
+    fn handle_write_event(&mut self, path: &Path) -> SvLogResult<()> {
         for i in 0..self.log_files.len() {
             let path_name = path.to_str().unwrap();
             if self.log_files[i].name == path_name {
@@ -150,7 +167,7 @@ impl<'a> LogPrinter<'a> {
         Ok(())
     }
 
-    fn process_new_lines(&mut self, i: usize, file: File, length: u64) -> Result<(), SvLogError> {
+    fn process_new_lines(&mut self, i: usize, file: File, length: u64) -> SvLogResult<()> {
         let mut reader = BufReader::new(file);
         let log_file: &mut LogFile = &mut self.log_files[i];
         reader

@@ -1,11 +1,19 @@
-use crate::printer::LogPriority;
-use crate::util::service::*;
-use clap::ColorChoice;
-use clap::Parser;
-use std::error::Error;
-use std::fmt;
+use std::{
+    error::Error,
+    fmt,
+    ops::{Add, Sub},
+};
+
+use chrono::{Duration, NaiveDateTime, Utc};
+use clap::{ColorChoice, Parser};
+
+use crate::{
+    printer::LogPriority,
+    util::{regex, service::*},
+};
 
 static HELP_TEMPLATE: &str = "USAGE: {usage}\n{about}\n\n{all-args}";
+static CLI_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -72,10 +80,38 @@ pub struct Args {
     /// warn(4), notice(5), info(6), debug(7).
     #[clap(short, long, parse(try_from_str = parse_priorities), default_value = "0..7")]
     pub priority: (LogPriority, LogPriority),
-    // pub priority: Option<(Option<u8>, Option<u8>)>,
+
     /// Services to log (all by default)
     #[clap(parse(try_from_str = parse_service))]
     pub services: Vec<String>,
+
+    /// Only consider logs from this time on forward. Possible values: "today",
+    /// "yesterday", "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DD HH:MM", "YYYY-MM-DD",
+    /// "HH:MM:SS", "HH:MM". If not date is specified, "today" is assumed. If no
+    /// hour/minute/second is specified, 0 is assumed.
+    #[clap(
+        short,
+        long,
+        parse(try_from_str = parse_ndt_since),
+        conflicts_with_all = &["boot", "boot-offset"]
+    )]
+    pub since: Option<NaiveDateTime>,
+
+    /// Only consider logs until (and including) this time. Possible values:
+    /// "today", "yesterday", "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DD HH:MM",
+    /// "YYYY-MM-DD", "HH:MM:SS", "HH:MM". If not date is specified, "today" is
+    /// assumed. If no hour/minute/second is specified, 0 is assumed.
+    #[clap(
+        short,
+        long,
+        parse(try_from_str = parse_ndt_until),
+        conflicts_with_all = &["boot", "boot-offset"]
+    )]
+    pub until: Option<NaiveDateTime>,
+
+    /// Show logs in UTC instead of localtime
+    #[clap(long)]
+    pub utc: bool,
 }
 
 #[derive(Debug)]
@@ -105,10 +141,10 @@ fn parse_service(s: &str) -> Result<String, Box<dyn Error + Send + Sync + 'stati
     if ALL_SERVICES.contains(&s.to_string()) {
         return Ok(s.to_string());
     }
-    return Err(Box::new(InvalidArgError(format!(
+    Err(Box::new(InvalidArgError(format!(
         "Service \"{}\" not found",
         s
-    ))));
+    ))))
 }
 
 fn parse_priorities(
@@ -146,4 +182,61 @@ fn parse_priorities(
             s
         ))))
     }
+}
+
+// until-time represents the last point in time included in the logs
+// since-time represents the first point in time included in the logs
+//
+// option                       since   until
+// today               today 00:00:00   + 1.day - 1.ns
+// yesterday       yesterday 00:00:00   + 1.day - 1.ns
+// xxxx-yy-zz     xxxx-yy-zz 00:00:00   + 1.day - 1.ns
+// xx:yy:zz            today xx:yy:zz   + 1.sec - 1.ns
+// xx:yy               today xx:yy:00   + 1.min - 1.ns
+
+#[derive(Debug)]
+struct TimeError(String);
+impl fmt::Display for TimeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl Error for TimeError {}
+
+fn parse_ndt_until(s: &str) -> Result<NaiveDateTime, Box<dyn Error + Send + Sync + 'static>> {
+    let time_point = parse_ndt(s)?;
+    Ok(time_point.0.add(time_point.1).sub(Duration::nanoseconds(1)))
+}
+
+fn parse_ndt_since(s: &str) -> Result<NaiveDateTime, Box<dyn Error + Send + Sync + 'static>> {
+    let time_point = parse_ndt(s)?;
+    Ok(time_point.0)
+}
+
+fn parse_ndt(s: &str) -> Result<(NaiveDateTime, Duration), Box<dyn Error + Send + Sync + 'static>> {
+    let today = Utc::now().naive_utc();
+    let yesterday = today.sub(Duration::days(1));
+    let today_date_str: String = today.format("%Y-%m-%d").to_string();
+    let yesterday_date_str: String = yesterday.format("%Y-%m-%d").to_string();
+    let (time_str, granularity) = match s {
+        "today" => (today_date_str + " 00:00:00", Duration::days(1)),
+        "yesterday" => (yesterday_date_str + " 00:00:00", Duration::days(1)),
+        s if regex::RE_DATE.is_match(s) => (String::from(s) + " 00:00:00", Duration::days(1)),
+        s if regex::RE_DATETIME_MIN.is_match(s) => (String::from(s) + ":00", Duration::minutes(1)),
+        s if regex::RE_DATETIME_SEC.is_match(s) => (s.to_string(), Duration::seconds(1)),
+        s if regex::RE_TIME_SEC.is_match(s) => (today_date_str + " " + s, Duration::seconds(1)),
+        s if regex::RE_TIME_MIN.is_match(s) => {
+            (today_date_str + " " + s + ":00", Duration::minutes(1))
+        }
+        _ => {
+            return Err(Box::new(TimeError(format!(
+                "Could not parse time \"{}\"",
+                s
+            ))))
+        }
+    };
+    Ok((
+        NaiveDateTime::parse_from_str(&time_str[..], CLI_DATE_FORMAT)?,
+        granularity,
+    ))
 }
