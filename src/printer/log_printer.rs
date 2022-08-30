@@ -120,11 +120,12 @@ impl<'a> LogPrinter<'a> {
             .flatten()
             .collect();
         if let Some(n) = lines {
-            log_lines = log_lines
-                .iter()
-                .skip(log_lines.len() - n)
-                .cloned()
-                .collect();
+            let skip_amount = if log_lines.len() < n {
+                0
+            } else {
+                log_lines.len() - n
+            };
+            log_lines = log_lines.iter().skip(skip_amount).cloned().collect();
         }
         Ok(log_lines)
     }

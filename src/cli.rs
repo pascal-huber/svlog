@@ -25,7 +25,7 @@ static CLI_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
     version
 )]
 pub struct Args {
-    /// Only show logs since last boot (short for --boot-offset 0 but allowed in
+    /// Only show logs since last boot (like --boot-offset 0 but allowed in
     /// combination with --follow)
     #[clap(short, long, conflicts_with = "boot-offset")]
     pub boot: bool,
@@ -42,12 +42,17 @@ pub struct Args {
     #[clap(short = 'm', long = "match", required = false, value_name = "REGEX")]
     pub filter: Option<String>,
 
+    /// Set the filter (--match) case insensitive
+    #[clap(short = 'i', long = "case-insensitive")]
+    pub case_insensitive: bool,
+
     /// Limit the number of lines shown. <N> may be a positive integer or "all".
     /// If --follow is used, a default value of 10 is used.
     #[clap(
         short = 'n',
         long = "lines",
         value_name = "N",
+        default_value_if("boot", None, Some("all")),
         default_value_if("follow", None, Some("10")),
         default_value("all"),
         parse(try_from_str = parse_lines),
@@ -133,8 +138,8 @@ fn parse_lines(s: &str) -> Result<Option<Option<usize>>, Box<dyn Error + Send + 
     match n {
         Ok(n) => Ok(Some(Some(n))),
         _ => Err(Box::new(InvalidArgError(format!(
-            "Invalid line number \"{}\"",
-            s
+            "<N> must be a positive number between 0 and {}",
+            usize::MAX
         )))),
     }
 }

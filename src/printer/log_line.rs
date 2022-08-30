@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use chrono::{LocalResult, NaiveDateTime, TimeZone, Timelike};
+use chrono::{LocalResult, NaiveDateTime, Offset, TimeZone, Timelike};
 use chrono_tz::Tz;
 use regex::Regex;
 use snafu::prelude::*;
@@ -59,7 +59,7 @@ impl LogLine {
                     "{}.{:0>5}{} {}",
                     local_time.format("%Y-%m-%dT%H:%M:%S"),
                     local_time.nanosecond(),
-                    offset,
+                    offset.fix(),
                     self.content,
                 ))
             } else {

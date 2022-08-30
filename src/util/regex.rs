@@ -9,10 +9,10 @@ lazy_static! {
         Regex::new(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$").unwrap();
 }
 
-pub fn build_regex(pattern: &Option<String>) -> Option<Regex> {
+pub fn build_regex(pattern: &Option<String>, case_insensitive: bool) -> Option<Regex> {
     pattern.as_ref().map(|pattern| {
         RegexBuilder::new(&pattern[..])
-            .case_insensitive(true)
+            .case_insensitive(case_insensitive)
             .build()
             .unwrap()
     })

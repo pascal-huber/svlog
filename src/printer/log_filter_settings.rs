@@ -23,7 +23,7 @@ pub struct LogFilterSettings {
 
 impl LogFilterSettings {
     pub fn from_args(args: &Args) -> SvLogResult<Self> {
-        let re: Option<Regex> = build_regex(&args.filter);
+        let re: Option<Regex> = build_regex(&args.filter, args.case_insensitive);
         let tz = if args.utc { None } else { Some(local_tz()?) };
         let (since_time_utc, until_time_utc) = if args.boot {
             boot_times(0)?
