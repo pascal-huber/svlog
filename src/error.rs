@@ -17,13 +17,13 @@ pub enum SvLogError {
     TimeZoneError { message: String },
 
     #[snafu(display("ComandOutputError {}", message))]
-    CommandOutput {
+    CommandOutputError {
         message: String,
         source: std::io::Error,
     },
 
     #[snafu(display("PrintLinesError: failed to print lines"))]
-    PrintLines { source: std::io::Error },
+    PrintLinesError { source: std::io::Error },
 
     #[snafu(display("Failed to parse timestamp in: {line}"))]
     ParsingChronoError {
@@ -35,22 +35,22 @@ pub enum SvLogError {
     ParsingLogLineError { line: String },
 
     #[snafu(display("OpenFileError: {path}"))]
-    OpenFile {
+    OpenFileError {
         path: String,
         source: std::io::Error,
     },
 
     #[snafu(display("WatchFilesError: {message}"))]
-    WatchFiles {
+    WatchFilesError {
         message: String,
         source: std::io::Error,
     },
 
     #[snafu(display("WatchFilesRecvError: {message}"))]
-    WatchFilesRecv { message: String, source: RecvError },
+    WatchFilesRecvError { message: String, source: RecvError },
 
     #[snafu(display("WatchFilesNotifyError: {message}"))]
-    WatchFilesNotify {
+    WatchFilesNotifyError {
         message: String,
         source: notify::Error,
     },

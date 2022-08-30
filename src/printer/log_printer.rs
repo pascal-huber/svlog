@@ -12,12 +12,11 @@ use pager::Pager;
 use rayon::prelude::*;
 use snafu::prelude::*;
 
-use super::LogFilterSettings;
 use crate::{
     error::*,
     printer::{log_file::*, log_line::*},
     util::{cache::*, settings::*},
-    SvLogResult,
+    LogFilterSettings, SvLogResult,
 };
 
 pub struct LogPrinter<'a> {
@@ -27,7 +26,6 @@ pub struct LogPrinter<'a> {
 }
 
 impl<'a> LogPrinter<'a> {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(log_files: Vec<LogFile<'a>>, log_settings: &'a LogFilterSettings) -> LogPrinter<'a> {
         let cache: Cache<String> = Cache::new(20);
         LogPrinter {

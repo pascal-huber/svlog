@@ -4,8 +4,7 @@ use std::{
     io::{prelude::*, BufReader},
 };
 
-use super::LogFilterSettings;
-use crate::{printer::log_line::*, SvLogResult};
+use crate::{printer::log_line::*, LogFilterSettings, SvLogResult};
 
 pub struct LogFile<'a> {
     pub name: &'a str,
