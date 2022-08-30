@@ -13,6 +13,9 @@ pub enum SvLogError {
     #[snafu(display("BootTimeNotFound"))]
     BootTimeNotFound {},
 
+    #[snafu(display("TimeZoneError {}", message))]
+    TimeZoneError { message: String },
+
     #[snafu(display("ComandOutputError {}", message))]
     CommandOutput {
         message: String,

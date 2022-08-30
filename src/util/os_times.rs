@@ -4,16 +4,33 @@ use std::{
 };
 
 use chrono::{Duration, NaiveDateTime};
-use snafu::ResultExt;
+use chrono_tz::Tz;
+use snafu::{ensure, ResultExt};
 
-use crate::{error::*, true_or_err, util::settings::*, SvLogError};
+use crate::{error::*, util::settings::*};
+
+pub fn local_tz() -> SvLogResult<Tz> {
+    let path = std::fs::read_link("/etc/localtime")
+        .context(CommandOutputSnafu {
+            message: "Could not read \"/etc/localtime\"".to_string(),
+        })?
+        .into_os_string()
+        .into_string()
+        .unwrap_or_else(|_| "".to_string());
+    let zone_str = path.split("zoneinfo/").last().unwrap_or("");
+    let zone = zone_str.parse::<Tz>();
+    ensure!(
+        zone.is_ok(),
+        TimeZoneSnafu {
+            message: format!("Could not find timezone \"{zone_str}\""),
+        }
+    );
+    Ok(zone.unwrap())
+}
 
 pub fn boot_times(offset: usize) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
     let boot_time_lines = boot_time_lines()?;
-    true_or_err!(
-        boot_time_lines.len() > offset,
-        SvLogError::BootTimeNotFound {}
-    );
+    ensure!(boot_time_lines.len() > offset, BootTimeNotFoundSnafu {});
     let mut result = boot_time_tuple(boot_time_lines[offset].clone())?;
     if result.1.is_none() && offset >= 1 {
         let next_boot = boot_time_tuple(boot_time_lines[offset - 1].clone())?;
@@ -45,7 +62,7 @@ fn boot_time_lines() -> SvLogResult<Vec<String>> {
 }
 
 fn boot_time_tuple(line: String) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
-    true_or_err!(line.len() > 41, SvLogError::BootTimeNotFound {});
+    ensure!(line.len() > 41, BootTimeNotFoundSnafu {});
     let from =
         NaiveDateTime::parse_from_str(&line[22..41], DATE_FORMAT).context(ParsingChronoSnafu {
             line: &line[22..41],

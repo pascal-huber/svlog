@@ -2,24 +2,31 @@
 
 Display, filter and follow socklog log files on Void Linux.
 
-## Example use cases
+## Usage Examples
 
-There is something wrong with your bluetooth and you want to see all logs which
-contain "blue" (case insensitive) since you booted the machine:
+Show all logs which contain "blue" (case insensitive) and were logged since the
+last boot. 
 
 ``` sh
 svlog kernel -b -m blue
 ```
 
-Your PC froze and you had to reset it. You have no idea why this happened and
-want to see all kernel logs from the previous boot.
+Show all kernel logs from the previous boot with priority error or lower.
 
 ``` sh
-svlog -o 1 kernel
+svlog -p ..err -o 1 kernel
 ```
 
-You want to see all upcoming kernel and xbps logs (for whatever reason).
+You want to see all kernel logs since a certain timestamp until yesterday.
+
+``` sh
+svlog -s "2022-08-14 13:45" -u yesterday kernel
+```
+
+Show the last 10 lines and all upcoming logs from services kernel and xbps.
 
 ``` sh
 svlog -n xbps kernel
 ```
+
+

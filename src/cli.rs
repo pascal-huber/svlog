@@ -87,9 +87,9 @@ pub struct Args {
 
     /// Only consider logs from this time on forward. Possible values: "today",
     /// "yesterday", "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DD HH:MM", "YYYY-MM-DD",
-    /// "HH:MM:SS", "HH:MM". If not date is specified, "today" is assumed. If no
-    /// hour/minute/second is specified, 0 is assumed. Furthermore, this option
-    /// respects the --utc flag.
+    /// "HH:MM:SS", "HH:MM". If no date is specified, "today" is assumed. If no
+    /// hour/minute/second is specified, 0 is assumed. The timestamps are in
+    /// locatime unless the --utc option is set.
     #[clap(
         short,
         long,
@@ -100,9 +100,9 @@ pub struct Args {
 
     /// Only consider logs until (and including) this time. Possible values:
     /// "today", "yesterday", "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DD HH:MM",
-    /// "YYYY-MM-DD", "HH:MM:SS", "HH:MM". If not date is specified, "today" is
-    /// assumed. If no hour/minute/second is specified, 0 is assumed.
-    /// Furthermore, this option respects the --utc flag.
+    /// "YYYY-MM-DD", "HH:MM:SS", "HH:MM". If no date is specified, "today" is
+    /// assumed. If no hour/minute/second is specified, 0 is assumed. The
+    /// timestamps are in locatime unless the --utc option is set.
     #[clap(
         short,
         long,
@@ -111,8 +111,8 @@ pub struct Args {
     )]
     pub until: Option<NaiveDateTime>,
 
-    /// Show logs in UTC instead of localtime
-    #[clap(long)]
+    // Use UTC for timestamps instead of localtime
+    #[clap(long = "utc")]
     pub utc: bool,
 }
 

@@ -2,10 +2,17 @@ use std::path::{Path, PathBuf};
 
 use glob::glob;
 
-use crate::util::settings::*;
+use crate::{printer::LogFile, util::settings::*};
 
 lazy_static! {
     pub static ref ALL_SERVICES: Vec<String> = all_services();
+}
+
+pub fn service_log_files(service_file_paths: &[PathBuf]) -> Vec<LogFile> {
+    service_file_paths
+        .iter()
+        .map(|path| LogFile::new(path.to_str().unwrap()))
+        .collect()
 }
 
 pub fn file_paths(services: &[String]) -> Vec<PathBuf> {

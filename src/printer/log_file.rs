@@ -4,14 +4,12 @@ use std::{
     io::{prelude::*, BufReader},
 };
 
-use super::LogSettings;
+use super::LogFilterSettings;
 use crate::{printer::log_line::*, SvLogResult};
 
-#[derive(Copy, Clone)]
 pub struct LogFile<'a> {
     pub name: &'a str,
     pub position: u64,
-    // TODO: check if I should add BufReader<File> or File to LogFile
 }
 
 impl<'a> LogFile<'a> {
@@ -28,7 +26,7 @@ impl<'a> LogFile<'a> {
 
     pub fn extract_loglines(
         &mut self,
-        log_settings: &LogSettings,
+        log_settings: &LogFilterSettings,
     ) -> SvLogResult<BTreeSet<LogLine>> {
         let file = File::open(self.name).unwrap();
         let reader = BufReader::new(&file);
@@ -39,9 +37,9 @@ impl<'a> LogFile<'a> {
             .collect::<SvLogResult<BTreeSet<LogLine>>>()?
             // TODO: check out the unstable "try_collect"
             .iter()
-            .filter(|l| l.is_between(&log_settings.since, &log_settings.until))
-            .filter(|l| l.is_match(&log_settings.re))
-            .filter(|l| l.has_priority(&log_settings.min_priority, &log_settings.max_priority))
+            .filter(|&l| l.is_between(&log_settings.since, &log_settings.until))
+            .filter(|&l| l.is_match(&log_settings.re))
+            .filter(|&l| l.has_priority(&log_settings.min_priority, &log_settings.max_priority))
             .cloned()
             .collect();
         let meta = file.metadata();

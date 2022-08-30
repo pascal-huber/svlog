@@ -1,25 +1,26 @@
 use std::fmt::{self, Display, Formatter};
 
-use chrono::{FixedOffset, NaiveDateTime, TimeZone, Timelike};
+use chrono::{LocalResult, NaiveDateTime, TimeZone, Timelike};
+use chrono_tz::Tz;
 use regex::Regex;
 use snafu::prelude::*;
 
-use crate::{error::*, printer::LogPriority, true_or_err};
+use crate::{error::*, printer::LogPriority};
 
 // NOTE: Socklog timestamps only have 5 digits at the end. Therefore the last is always 0.
 static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S.%f";
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct LogLine {
-    pub date: NaiveDateTime,
+    date: NaiveDateTime,
     date_str: String,
-    pub content: String,
+    content: String,
     priority: LogPriority,
 }
 
 impl LogLine {
     pub fn new(line: String) -> SvLogResult<Self> {
-        true_or_err!(line.len() >= 27, SvLogError::ParsingLogLineError { line });
+        ensure!(line.len() >= 27, ParsingLogLineSnafu { line });
         let date_str: &str = &line[..25];
         let date = NaiveDateTime::parse_from_str(date_str, DATE_FORMAT)
             .context(ParsingChronoSnafu { line: &line[..] })?;
@@ -49,14 +50,29 @@ impl LogLine {
         !matches!(re, Some(re) if !re.is_match(&self.content[..]))
     }
 
-    pub fn format_with_offset(&self, time_offset: &FixedOffset) -> String {
-        let local_time = time_offset.from_utc_datetime(&self.date);
-        format!(
-            "{}.{:0>5} {}",
-            local_time.format("%Y-%m-%dT%H:%M:%S"),
-            local_time.nanosecond(),
-            self.content
-        )
+    pub fn format_with_tz(&self, tz: &Option<Tz>) -> SvLogResult<String> {
+        if let Some(tz) = *tz {
+            let local_time = tz.from_utc_datetime(&self.date);
+            let offset = tz.offset_from_local_datetime(&self.date);
+            if let LocalResult::Single(offset) = offset {
+                Ok(format!(
+                    "{}.{:0>5}{} {}",
+                    local_time.format("%Y-%m-%dT%H:%M:%S"),
+                    local_time.nanosecond(),
+                    offset,
+                    self.content,
+                ))
+            } else {
+                Err(SvLogError::TimeZoneError {
+                    message: format!(
+                        "Failed to compute tz offset for date \"{}\" and tz \"{}\"",
+                        self.date, tz
+                    ),
+                })
+            }
+        } else {
+            Ok(format!("{}Z {}", self.date_str, self.content,))
+        }
     }
 
     fn read_priority(content_str: &str) -> LogPriority {

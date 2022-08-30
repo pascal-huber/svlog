@@ -12,7 +12,7 @@ use pager::Pager;
 use rayon::prelude::*;
 use snafu::prelude::*;
 
-use super::LogSettings;
+use super::LogFilterSettings;
 use crate::{
     error::*,
     printer::{log_file::*, log_line::*},
@@ -23,23 +23,17 @@ use crate::{
 pub struct LogPrinter<'a> {
     log_files: Vec<LogFile<'a>>,
     cache: Cache<String>,
-    log_settings: &'a LogSettings,
-    jobs: usize,
+    log_settings: &'a LogFilterSettings,
 }
 
 impl<'a> LogPrinter<'a> {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        log_files: Vec<LogFile<'a>>,
-        log_settings: &'a LogSettings,
-        jobs: usize,
-    ) -> LogPrinter<'a> {
+    pub fn new(log_files: Vec<LogFile<'a>>, log_settings: &'a LogFilterSettings) -> LogPrinter<'a> {
         let cache: Cache<String> = Cache::new(20);
         LogPrinter {
             log_files,
             cache,
             log_settings,
-            jobs,
         }
     }
 
@@ -49,13 +43,29 @@ impl<'a> LogPrinter<'a> {
         }
     }
 
-    pub fn print_logs(&mut self, lines: Option<usize>) -> SvLogResult<()> {
-        let log_lines = self.retrieve_log_lines(lines)?;
-        let lines: BTreeSet<String> = log_lines
+    pub fn print_logs(
+        &mut self,
+        jobs: usize,
+        use_pager: bool,
+        lines: Option<usize>,
+    ) -> SvLogResult<()> {
+        if let Some(lines) = lines {
+            if lines == 0 {
+                self.jump_to_end();
+                return Ok(());
+            }
+        }
+        let log_lines = self.retrieve_log_lines(jobs, lines)?;
+        let formatted_log_lines = log_lines
             .par_iter()
-            .map(|log_line| log_line.format_with_offset(&self.log_settings.time_offset))
-            .collect::<BTreeSet<String>>();
-        self.print_lines(lines).context(PrintLinesSnafu {})
+            .map(|log_line| log_line.format_with_tz(&self.log_settings.tz))
+            .collect::<Result<BTreeSet<String>, _>>();
+        match formatted_log_lines {
+            Ok(lines) => self
+                .print_lines(use_pager, lines)
+                .context(PrintLinesSnafu {}),
+            Err(e) => Err(e),
+        }
     }
 
     pub fn watch_logs(&mut self) -> SvLogResult<()> {
@@ -84,8 +94,8 @@ impl<'a> LogPrinter<'a> {
     }
 
     #[pipefail]
-    fn print_lines(&mut self, lines: BTreeSet<String>) -> std::io::Result<()> {
-        if self.log_settings.use_pager {
+    fn print_lines(&mut self, use_pager: bool, lines: BTreeSet<String>) -> std::io::Result<()> {
+        if use_pager {
             Pager::new().setup();
         }
         for line in lines {
@@ -94,9 +104,13 @@ impl<'a> LogPrinter<'a> {
         Ok(())
     }
 
-    fn retrieve_log_lines(&mut self, lines: Option<usize>) -> SvLogResult<BTreeSet<LogLine>> {
+    fn retrieve_log_lines(
+        &mut self,
+        jobs: usize,
+        lines: Option<usize>,
+    ) -> SvLogResult<BTreeSet<LogLine>> {
         rayon::ThreadPoolBuilder::new()
-            .num_threads(self.jobs)
+            .num_threads(jobs)
             .build_global()
             .unwrap();
         let mut log_lines: BTreeSet<LogLine> = self
@@ -128,15 +142,20 @@ impl<'a> LogPrinter<'a> {
                 if file_length < self.log_files[i].position {
                     self.log_files[i].position = 0;
                 }
-                self.process_new_lines(i, file, file_length)?;
+                self.process_new_lines(i, &file, file_length)?;
             }
         }
         Ok(())
     }
 
-    fn process_new_lines(&mut self, i: usize, file: File, length: u64) -> SvLogResult<()> {
+    fn process_new_lines(
+        &mut self,
+        log_file_index: usize,
+        file: &File,
+        file_position: u64,
+    ) -> SvLogResult<()> {
         let mut reader = BufReader::new(file);
-        let log_file: &mut LogFile = &mut self.log_files[i];
+        let log_file: &mut LogFile = &mut self.log_files[log_file_index];
         reader
             .seek(SeekFrom::Start(log_file.position))
             .context(WatchFilesSnafu {
@@ -151,11 +170,11 @@ impl<'a> LogPrinter<'a> {
                         &self.log_settings.max_priority,
                     )
                 {
-                    println!("{}", log_line);
+                    println!("{}", log_line.format_with_tz(&self.log_settings.tz)?);
                 }
             }
         }
-        log_file.position = length;
+        log_file.position = file_position;
         Ok(())
     }
 }
