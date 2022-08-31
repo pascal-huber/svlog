@@ -117,8 +117,15 @@ mod tests {
     }
 
     #[test]
-    fn parse_err_no_content() {
-        let ll_str = "2021-12-11T09:12:45.35141 ";
+    fn parse_ok_no_content() {
+        let ll_str = "2021-12-11T09:12:45.35141";
+        let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
+        assert!(ll.is_ok());
+    }
+
+    #[test]
+    fn parse_err_short_timestamp() {
+        let ll_str = "2021-12-11T09:12:45.3514";
         let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
         assert!(ll.is_err());
     }
