@@ -24,13 +24,8 @@ impl LogLine {
         let date_str: &str = &line[..25];
         let date = NaiveDateTime::parse_from_str(date_str, DATE_FORMAT)
             .context(ParsingChronoSnafu { line: &line[..] })?;
-        // TODO: find a nicer way to handle empty log lines
-        let content_str = if line.len() >= 26 { &line[26..] } else { "" };
-        let priority = if line.len() >= 27 {
-            Self::read_priority(content_str)
-        } else {
-            LogPriority::max()
-        };
+        let content_str = line[25..].trim();
+        let priority = Self::read_priority(content_str);
         Ok(LogLine {
             date,
             date_str: date_str.to_string(),
@@ -88,7 +83,7 @@ impl LogLine {
             .split('.')
             .last()
             .unwrap_or("");
-        LogPriority::from_str_or_max(&priority_str[..priority_str.len() - 1])
+        LogPriority::from_str_or_max(priority_str)
     }
 }
 
@@ -104,9 +99,13 @@ mod tests {
 
     #[test]
     fn parse_ok() {
-        let ll_str = "2021-12-11T09:12:45.35141 kern.info: message";
+        let ll_str = "2021-12-11T09:12:45.35141 kern.info message";
         let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
         assert!(ll.is_ok());
+        let log_line = ll.unwrap();
+        assert_eq!(log_line.content, String::from("kern.info message"));
+        assert_eq!(log_line.priority, LogPriority::from_str("info").unwrap());
+        assert_eq!(log_line.date_str, "2021-12-11T09:12:45.35141");
     }
 
     #[test]
@@ -114,19 +113,106 @@ mod tests {
         let ll_str = "2021-12-11T09:12:45.35141 x";
         let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
         assert!(ll.is_ok());
+        let log_line = ll.unwrap();
+        assert_eq!(log_line.content, String::from("x"));
+        assert_eq!(log_line.priority, LogPriority::max());
+        assert_eq!(log_line.date_str, "2021-12-11T09:12:45.35141");
     }
 
     #[test]
-    fn parse_ok_no_content() {
+    fn parse_ok_only_date() {
         let ll_str = "2021-12-11T09:12:45.35141";
         let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
         assert!(ll.is_ok());
+        let log_line = ll.unwrap();
+        assert_eq!(log_line.content, String::from(""));
+        assert_eq!(log_line.priority, LogPriority::max());
+        assert_eq!(log_line.date_str, "2021-12-11T09:12:45.35141");
     }
 
     #[test]
-    fn parse_err_short_timestamp() {
+    fn parse_err_too_short_timestamp() {
         let ll_str = "2021-12-11T09:12:45.3514";
         let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
         assert!(ll.is_err());
+    }
+
+    #[test]
+    fn parse_ok_spaces_1() {
+        let ll_str = "2021-12-11T09:12:45.35141  x";
+        let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
+        assert!(ll.is_ok());
+        let log_line = ll.unwrap();
+        assert_eq!(log_line.content, String::from("x"));
+        assert_eq!(log_line.priority, LogPriority::max());
+        assert_eq!(log_line.date_str, "2021-12-11T09:12:45.35141");
+    }
+
+    #[test]
+    fn parse_ok_spaces_2() {
+        let ll_str = "2021-12-11T09:12:45.35141  ";
+        let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
+        assert!(ll.is_ok());
+        let log_line = ll.unwrap();
+        assert_eq!(log_line.content, String::from(""));
+        assert_eq!(log_line.priority, LogPriority::max());
+        assert_eq!(log_line.date_str, "2021-12-11T09:12:45.35141");
+    }
+
+    #[test]
+    fn parse_ok_spaces_3() {
+        let ll_str = "2021-12-11T09:12:45.35141\u{2009}x\u{2009}y";
+        let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
+        assert!(ll.is_ok());
+        let log_line = ll.unwrap();
+        assert_eq!(log_line.content, String::from("x\u{2009}y"));
+        assert_eq!(log_line.priority, LogPriority::max());
+        assert_eq!(log_line.date_str, "2021-12-11T09:12:45.35141");
+    }
+
+    #[test]
+    fn parse_ok_tab() {
+        let ll_str = "2021-12-11T09:12:45.35141\u{0009}kernel.err\u{0009}y";
+        let ll: Result<LogLine, _> = LogLine::new(ll_str.to_string());
+        assert!(ll.is_ok());
+        let log_line = ll.unwrap();
+        assert_eq!(log_line.content, String::from("kernel.err\u{0009}y"));
+        assert_eq!(log_line.priority, LogPriority::from_str("err").unwrap());
+        assert_eq!(log_line.date_str, "2021-12-11T09:12:45.35141");
+    }
+
+    #[test]
+    fn priority_empty_string() {
+        let s = "";
+        let prio = LogLine::read_priority(s);
+        assert_eq!(prio, LogPriority::max());
+    }
+
+    #[test]
+    fn priority_err() {
+        let s = "kernel.err x y z";
+        let prio = LogLine::read_priority(s);
+        assert_eq!(prio, LogPriority::from_str("err").unwrap());
+    }
+
+    #[test]
+    fn priority_err_2() {
+        let s = ".err x y z";
+        let prio = LogLine::read_priority(s);
+        assert_eq!(prio, LogPriority::from_str("err").unwrap());
+    }
+
+    #[test]
+    fn priority_no_dot() {
+        let s = "kernel x y z";
+        let prio = LogLine::read_priority(s);
+        assert_eq!(prio, LogPriority::max());
+    }
+
+    #[test]
+    fn priority_ambiguous() {
+        let s = "kernel.ambiguous x y z";
+        let prio = LogLine::read_priority(s);
+        assert_eq!(prio, LogPriority::max());
     }
 }
