@@ -60,13 +60,13 @@ pub struct Args {
     )]
     pub lines: Option<Option<usize>>,
 
-    /// Number parallel jobs to process log files, by default number of logical
-    /// processors (rayon's default)
+    /// Number parallel jobs to process log files or "0" to use all logical
+    /// processors of system.
     #[clap(short, long, default_value = "0")]
     pub jobs: usize,
 
     /// Show logs of some old boot with offset <OFFSET> where an offset of 0 is
-    /// the current boot, an offset of 1 the previous and so on
+    /// the current boot, an offset of 1 the previous one and so on.
     #[clap(
         short = 'o',
         long = "boot-offset",
@@ -116,7 +116,8 @@ pub struct Args {
     )]
     pub until: Option<NaiveDateTime>,
 
-    // Use UTC for timestamps instead of localtime
+    // Use UTC for timestamps instead of localtime (including timestamps in
+    // other options).
     #[clap(long = "utc")]
     pub utc: bool,
 }
