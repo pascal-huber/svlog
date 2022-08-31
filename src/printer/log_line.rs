@@ -20,12 +20,17 @@ pub struct LogLine {
 
 impl LogLine {
     pub fn new(line: String) -> SvLogResult<Self> {
-        ensure!(line.len() >= 27, ParsingLogLineSnafu { line });
+        ensure!(line.len() >= 25, ParsingLogLineSnafu { line });
         let date_str: &str = &line[..25];
         let date = NaiveDateTime::parse_from_str(date_str, DATE_FORMAT)
             .context(ParsingChronoSnafu { line: &line[..] })?;
-        let content_str: &str = &line[26..];
-        let priority = Self::read_priority(content_str);
+        // TODO: find a nicer way to handle empty log lines
+        let content_str = if line.len() >= 26 { &line[26..] } else { "" };
+        let priority = if line.len() >= 27 {
+            Self::read_priority(content_str)
+        } else {
+            LogPriority::max()
+        };
         Ok(LogLine {
             date,
             date_str: date_str.to_string(),

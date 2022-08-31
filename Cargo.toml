@@ -1,6 +1,6 @@
 [package]
 name = "svlog"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Pascal Huber <pascal.huber@resolved.ch>"]
 edition = "2021"
 description = "Display, filter and follow socklog log files on Void Linux."
