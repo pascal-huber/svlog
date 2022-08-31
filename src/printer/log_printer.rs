@@ -35,12 +35,6 @@ impl<'a> LogPrinter<'a> {
         }
     }
 
-    pub fn jump_to_end(&mut self) {
-        for log_file in &mut self.log_files {
-            log_file.jump_to_end();
-        }
-    }
-
     pub fn print_logs(
         &mut self,
         jobs: usize,
@@ -88,6 +82,12 @@ impl<'a> LogPrinter<'a> {
             {
                 self.handle_write_event(&path)?;
             }
+        }
+    }
+
+    fn jump_to_end(&mut self) {
+        for log_file in &mut self.log_files {
+            log_file.jump_to_end();
         }
     }
 
