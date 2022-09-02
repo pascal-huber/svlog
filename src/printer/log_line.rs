@@ -82,6 +82,9 @@ impl LogLine {
             .unwrap_or("")
             .split('.')
             .last()
+            .unwrap_or("")
+            .split(':')
+            .next()
             .unwrap_or("");
         LogPriority::from_str_or_max(priority_str)
     }
@@ -190,28 +193,35 @@ mod tests {
 
     #[test]
     fn priority_err() {
-        let s = "kernel.err x y z";
+        let s = "kern.err: x y z";
+        let prio = LogLine::read_priority(s);
+        assert_eq!(prio, LogPriority::from_str("err").unwrap());
+    }
+
+    #[test]
+    fn priority_err_without_colon() {
+        let s = "kern.err x y z";
         let prio = LogLine::read_priority(s);
         assert_eq!(prio, LogPriority::from_str("err").unwrap());
     }
 
     #[test]
     fn priority_err_2() {
-        let s = ".err x y z";
+        let s = ".err: x y z";
         let prio = LogLine::read_priority(s);
         assert_eq!(prio, LogPriority::from_str("err").unwrap());
     }
 
     #[test]
     fn priority_no_dot() {
-        let s = "kernel x y z";
+        let s = "kernel: x y z";
         let prio = LogLine::read_priority(s);
         assert_eq!(prio, LogPriority::max());
     }
 
     #[test]
     fn priority_ambiguous() {
-        let s = "kernel.ambiguous x y z";
+        let s = "kernel.ambiguous: x y z";
         let prio = LogLine::read_priority(s);
         assert_eq!(prio, LogPriority::max());
     }
