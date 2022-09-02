@@ -6,6 +6,7 @@ use std::{
 use chrono::{Duration, NaiveDateTime};
 use chrono_tz::Tz;
 use snafu::{ensure, ResultExt};
+use sysinfo::{System, SystemExt};
 
 use crate::{error::*, util::settings::*};
 
@@ -28,20 +29,40 @@ pub fn local_tz() -> SvLogResult<Tz> {
     Ok(zone.unwrap())
 }
 
-pub fn boot_times(offset: usize) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
-    let boot_time_lines = boot_time_lines()?;
-    ensure!(boot_time_lines.len() > offset, BootTimeNotFoundSnafu {});
-    let mut result = boot_time_tuple(boot_time_lines[offset].clone())?;
-    if result.1.is_none() && offset >= 1 {
-        let next_boot = boot_time_tuple(boot_time_lines[offset - 1].clone())?;
-        if let Some(startup_time) = next_boot.0 {
-            result.1 = Some(startup_time.sub(Duration::nanoseconds(1)))
+pub fn boot_times(
+    offset: Option<usize>,
+) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
+    match offset {
+        Some(offset) if offset > 0 => {
+            // FIXME: This only works for glibc
+            let boot_time_lines = boot_time_lines()?;
+            ensure!(boot_time_lines.len() > offset, BootTimeNotFoundSnafu {});
+            let mut result = boot_time_tuple(boot_time_lines[offset].clone())?;
+            if result.1.is_none() && offset >= 1 {
+                let next_boot = boot_time_tuple(boot_time_lines[offset - 1].clone())?;
+                if let Some(startup_time) = next_boot.0 {
+                    result.1 = Some(startup_time.sub(Duration::nanoseconds(1)))
+                }
+            }
+            Ok(result)
+        }
+        _ => {
+            let since = boot_time()?;
+            Ok((Some(since), None))
         }
     }
-    Ok(result)
+}
+
+fn boot_time() -> SvLogResult<NaiveDateTime> {
+    // TODO: check if this works on musl
+    let sys = System::new();
+    let boot_time_seconds = sys.boot_time();
+    let boot_time = NaiveDateTime::from_timestamp(boot_time_seconds as i64, 0);
+    Ok(boot_time)
 }
 
 fn boot_time_lines() -> SvLogResult<Vec<String>> {
+    // FIXME: on musl, "last" will throw an error as wtmp does not exist
     let output = Command::new("last")
         .arg("-a")
         .arg("--time-format")

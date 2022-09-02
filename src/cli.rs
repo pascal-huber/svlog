@@ -25,12 +25,13 @@ static CLI_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
     version
 )]
 pub struct Args {
-    /// Only show logs since last boot (like --boot-offset 0 but allowed in
-    /// combination with --follow)
-    #[clap(short, long, conflicts_with = "boot-offset")]
-    pub boot: bool,
+    /// Only show logs since the last (re)boot. If an OFFSET is provided, show
+    /// logs of some old boot where an offset of 0 is the current boot, an
+    /// offset of 1 the previous one and so on.
+    #[clap(short, long, value_name = "OFFSET", conflicts_with = "lines")]
+    pub boot: Option<Option<usize>>,
 
-    /// Follow the services for new logs after printing the present logs
+    /// Follow the services for new logs. By default, 10 lines are
     #[clap(short, long)]
     pub follow: bool,
 
@@ -52,28 +53,19 @@ pub struct Args {
         short = 'n',
         long = "lines",
         value_name = "N",
-        default_value_if("boot", None, Some("all")),
+        // NOTE: although "boot" and "lines" conflict, "follow" sets a default value
+        //   for "lines" which we need to catch with a default value for "boot".
+        conflicts_with = "boot",
+        default_value_if("boot", None, None),
         default_value_if("follow", None, Some("10")),
-        default_value("all"),
-        parse(try_from_str = parse_lines),
-        hide_default_value = true,
+        hide_default_value = true
     )]
-    pub lines: Option<Option<usize>>,
+    pub lines: Option<usize>,
 
     /// Number parallel jobs to process log files or "0" to use all logical
     /// processors of system.
     #[clap(short, long, default_value = "0")]
     pub jobs: usize,
-
-    /// Show logs of some old boot with offset <OFFSET> where an offset of 0 is
-    /// the current boot, an offset of 1 the previous one and so on.
-    #[clap(
-        short = 'o',
-        long = "boot-offset",
-        value_name = "OFFSET",
-        conflicts_with_all = &["follow", "boot"],
-    )]
-    pub boot_offset: Option<usize>,
 
     /// Just print to stdout and don't pipe the output into a pager
     #[clap(long = "no-pager")]
@@ -99,7 +91,7 @@ pub struct Args {
         short,
         long,
         parse(try_from_str = parse_ndt_since),
-        conflicts_with_all = &["boot", "boot-offset"]
+        conflicts_with = "boot",
     )]
     pub since: Option<NaiveDateTime>,
 
@@ -112,7 +104,7 @@ pub struct Args {
         short,
         long,
         parse(try_from_str = parse_ndt_until),
-        conflicts_with_all = &["boot", "boot-offset"]
+        conflicts_with = "boot",
     )]
     pub until: Option<NaiveDateTime>,
 
@@ -130,20 +122,6 @@ impl fmt::Display for InvalidArgError {
     }
 }
 impl Error for InvalidArgError {}
-
-fn parse_lines(s: &str) -> Result<Option<Option<usize>>, Box<dyn Error + Send + Sync + 'static>> {
-    if s == "all" {
-        return Ok(None);
-    }
-    let n = s.parse::<usize>();
-    match n {
-        Ok(n) => Ok(Some(Some(n))),
-        _ => Err(Box::new(InvalidArgError(format!(
-            "<N> must be a positive number between 0 and {}",
-            usize::MAX
-        )))),
-    }
-}
 
 fn parse_service(s: &str) -> Result<String, Box<dyn Error + Send + Sync + 'static>> {
     if ALL_SERVICES.contains(&s.to_string()) {

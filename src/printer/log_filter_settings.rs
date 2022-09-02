@@ -25,10 +25,8 @@ impl LogFilterSettings {
     pub fn from_args(args: &Args) -> SvLogResult<Self> {
         let re: Option<Regex> = build_regex(&args.filter, args.case_insensitive);
         let tz = if args.utc { None } else { Some(local_tz()?) };
-        let (since_time_utc, until_time_utc) = if args.boot {
-            boot_times(0)?
-        } else if let Some(offset) = args.boot_offset {
-            boot_times(offset)?
+        let (since_time_utc, until_time_utc) = if let Some(boot_offset) = args.boot {
+            boot_times(boot_offset)?
         } else if let Some(tz) = tz {
             let since_time_utc: Option<NaiveDateTime> = args
                 .since

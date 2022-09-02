@@ -10,8 +10,14 @@ pub type SvLogResult<T> = Result<T, SvLogError>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum SvLogError {
+    #[snafu(display("InvalidArgCombinationError: {}", message))]
+    InvalidArgCombinationError { message: String },
+
     #[snafu(display("BootTimeNotFound"))]
     BootTimeNotFound {},
+
+    #[snafu(display("BootTimeNotFound"))]
+    TryFromError {},
 
     #[snafu(display("TimeZoneError {}", message))]
     TimeZoneError { message: String },

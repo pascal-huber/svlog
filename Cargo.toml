@@ -23,5 +23,5 @@ pager = "0.16.0"
 rayon = "1.5.3"
 regex = "1.5.6"
 snafu = { version = "0.7.1", features = ["backtraces"] }
-sys-info = "0.9.1"
+sysinfo = "0.26.1"
 tzdb = "0.4.4"
