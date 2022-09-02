@@ -21,7 +21,7 @@ svlog -m "[A-Za-z]lue.ooth" -i -b --utc
 Show all kernel logs from the previous boot with priority error or lower.
 
 ``` sh
-svlog -b 1 -p ..err kernel
+svlog -o 1 -p ..err kernel
 ```
 
 Show all kernel and daemon logs as of a certain timestamp until yesterday.
