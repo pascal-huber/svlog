@@ -1,7 +1,4 @@
-use std::{
-    ops::Sub,
-    process::{Command, Stdio},
-};
+use std::{ops::Sub, process::Command};
 
 use chrono::{Duration, NaiveDateTime};
 use chrono_tz::Tz;
@@ -35,63 +32,99 @@ pub fn boot_times(
     match offset {
         Some(offset) if offset > 0 => {
             // FIXME: This only works for glibc
-            let boot_time_lines = boot_time_lines()?;
-            ensure!(boot_time_lines.len() > offset, BootTimeNotFoundSnafu {});
-            let mut result = boot_time_tuple(boot_time_lines[offset].clone())?;
-            if result.1.is_none() && offset >= 1 {
-                let next_boot = boot_time_tuple(boot_time_lines[offset - 1].clone())?;
-                if let Some(startup_time) = next_boot.0 {
-                    result.1 = Some(startup_time.sub(Duration::nanoseconds(1)))
-                }
-            }
-            Ok(result)
+            let boot_times = get_boot_time_with_offset(offset)?;
+            Ok(boot_times)
         }
         _ => {
-            let since = boot_time()?;
+            let since = get_last_boot_time()?;
             Ok((Some(since), None))
         }
     }
 }
 
-fn boot_time() -> SvLogResult<NaiveDateTime> {
-    // TODO: check if this works on musl
+fn get_last_boot_time() -> SvLogResult<NaiveDateTime> {
     let sys = System::new();
     let boot_time_seconds = sys.boot_time();
     let boot_time = NaiveDateTime::from_timestamp(boot_time_seconds as i64, 0);
     Ok(boot_time)
 }
 
-fn boot_time_lines() -> SvLogResult<Vec<String>> {
+fn get_boot_time_with_offset(
+    offset: usize,
+) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
     // FIXME: on musl, "last" will throw an error as wtmp does not exist
-    let output = Command::new("last")
+    let output_result = Command::new("last")
         .arg("-a")
         .arg("--time-format")
         .arg("iso")
         .env("TZ", "UTC")
-        .stdout(Stdio::piped())
-        .output()
-        .context(CommandOutputSnafu {
-            message: "failed to retrieve output of `TZ=UTC last -a --time-format iso`",
-        })?;
-    let output_str = String::from_utf8(output.stdout).unwrap();
-    let boot_lines: Vec<String> = output_str
-        .split('\n')
-        .filter(|x| x.contains("system boot"))
-        .map(|x| x.to_string())
-        .collect();
-    Ok(boot_lines)
+        .output();
+    match output_result {
+        Err(e) => Err(SvLogError::CommandOutputError {
+            message: "failed to retrieve output of `TZ=UTC last -a --time-format iso`".to_string(),
+            source: e,
+        }),
+        Ok(output) if !output.status.success() => Err(SvLogError::BootTimeNotFound {
+            message: format!(
+                "exit status {:?} for `TZ=UTC last -a --time-format iso`",
+                output.status.code().unwrap()
+            ),
+        }),
+        Ok(output) => {
+            let output_str = String::from_utf8(output.stdout).unwrap();
+            let boot_time_lines: Vec<String> = output_str
+                .split('\n')
+                .filter(|x| x.contains("system boot"))
+                .map(|x| x.to_string())
+                .collect();
+            extract_boot_times(boot_time_lines, offset)
+        }
+    }
 }
 
-fn boot_time_tuple(line: String) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
-    ensure!(line.len() > 41, BootTimeNotFoundSnafu {});
-    let from =
-        NaiveDateTime::parse_from_str(&line[22..41], DATE_FORMAT).context(ParsingChronoSnafu {
-            line: &line[22..41],
-        })?;
-    let until = if line.len() > 69 {
-        NaiveDateTime::parse_from_str(&line[50..69], DATE_FORMAT).ok()
+fn extract_boot_times(
+    boot_time_lines: Vec<String>,
+    offset: usize,
+) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
+    assert!(offset >= 1);
+    ensure!(
+        boot_time_lines.len() > offset,
+        BootTimeNotFoundSnafu {
+            message: format!("couldn't find boot with offset {}", offset),
+        }
+    );
+    let offset_line = &boot_time_lines[offset];
+    ensure!(
+        offset_line.len() >= 41,
+        BootTimeNotFoundSnafu {
+            message: format!("can't find valid timestamp on line: {}", offset_line),
+        }
+    );
+    let from = Some(
+        NaiveDateTime::parse_from_str(&offset_line[22..41], DATE_FORMAT).context(
+            ParsingChronoSnafu {
+                line: &offset_line[22..41],
+            },
+        )?,
+    );
+    let until = if offset_line.len() >= 69 {
+        Some(
+            NaiveDateTime::parse_from_str(&offset_line[50..69], DATE_FORMAT).context(
+                ParsingChronoSnafu {
+                    line: &offset_line[50..69],
+                },
+            )?,
+        )
     } else {
-        None
+        // NOTE: if no shutdown time is present, try to use the next boot time instead
+        let prev_line = &boot_time_lines[offset - 1];
+        Some(
+            NaiveDateTime::parse_from_str(&prev_line[22..41], DATE_FORMAT)
+                .context(ParsingChronoSnafu {
+                    line: &offset_line[22..41],
+                })?
+                .sub(Duration::seconds(1)),
+        )
     };
-    Ok((Some(from), until))
+    Ok((from, until))
 }

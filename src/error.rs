@@ -13,11 +13,8 @@ pub enum SvLogError {
     #[snafu(display("InvalidArgCombinationError: {}", message))]
     InvalidArgCombinationError { message: String },
 
-    #[snafu(display("BootTimeNotFound"))]
-    BootTimeNotFound {},
-
-    #[snafu(display("BootTimeNotFound"))]
-    TryFromError {},
+    #[snafu(display("BootTimeNotFound: {message}"))]
+    BootTimeNotFound { message: String },
 
     #[snafu(display("TimeZoneError {}", message))]
     TimeZoneError { message: String },
