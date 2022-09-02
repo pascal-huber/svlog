@@ -111,8 +111,8 @@ pub struct Args {
     )]
     pub until: Option<NaiveDateTime>,
 
-    // Use UTC for timestamps instead of localtime (including timestamps in
-    // other options).
+    /// Use UTC for timestamps instead of localtime (including timestamps in
+    /// other options).
     #[clap(long = "utc")]
     pub utc: bool,
 }
