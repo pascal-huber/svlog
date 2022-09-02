@@ -26,19 +26,14 @@ pub fn local_tz() -> SvLogResult<Tz> {
     Ok(zone.unwrap())
 }
 
-pub fn boot_times(
-    offset: Option<usize>,
-) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
-    match offset {
-        Some(offset) if offset > 0 => {
-            // FIXME: This only works for glibc
-            let boot_times = get_boot_time_with_offset(offset)?;
-            Ok(boot_times)
-        }
-        _ => {
-            let since = get_last_boot_time()?;
-            Ok((Some(since), None))
-        }
+pub fn boot_times(offset: usize) -> SvLogResult<(Option<NaiveDateTime>, Option<NaiveDateTime>)> {
+    if offset > 0 {
+        // FIXME: This only works for glibc
+        let boot_times = get_boot_time_with_offset(offset)?;
+        Ok(boot_times)
+    } else {
+        let since = get_last_boot_time()?;
+        Ok((Some(since), None))
     }
 }
 

@@ -25,13 +25,16 @@ static CLI_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
     version
 )]
 pub struct Args {
-    /// Only show logs since the last (re)boot. If an OFFSET is provided, show
-    /// logs of some old boot where an offset of 0 is the current boot, an
-    /// offset of 1 the previous one and so on.
-    #[clap(short, long, value_name = "OFFSET", conflicts_with = "lines")]
-    pub boot: Option<Option<usize>>,
+    /// Only show logs since the last (re)boot.
+    #[clap(short, long, conflicts_with_all = &["boot-offset", "lines"])]
+    pub boot: bool,
 
-    /// Follow the services for new logs. By default, 10 lines are
+    /// Only show logs from a certain boot. An OFFSET of 0 means the current
+    /// boot (like --boot), an OFFSET of 1 the previous one and so on.
+    #[clap(short = 'o', long, value_name = "OFFSET", conflicts_with_all = &["boot", "lines"])]
+    pub boot_offset: Option<usize>,
+
+    /// Follow the services for new logs.
     #[clap(short, long)]
     pub follow: bool,
 
@@ -53,9 +56,9 @@ pub struct Args {
         short = 'n',
         long = "lines",
         value_name = "N",
+        conflicts_with_all = &["boot-offset", "since", "until"],
         // NOTE: although "boot" and "lines" conflict, "follow" sets a default value
         //   for "lines" which we need to catch with a default value for "boot".
-        conflicts_with = "boot",
         default_value_if("boot", None, None),
         default_value_if("follow", None, Some("10")),
         hide_default_value = true
@@ -91,7 +94,7 @@ pub struct Args {
         short,
         long,
         parse(try_from_str = parse_ndt_since),
-        conflicts_with = "boot",
+        conflicts_with_all = &["boot", "boot-offset", "lines", "follow"],
     )]
     pub since: Option<NaiveDateTime>,
 
@@ -104,7 +107,7 @@ pub struct Args {
         short,
         long,
         parse(try_from_str = parse_ndt_until),
-        conflicts_with = "boot",
+        conflicts_with_all = &["boot", "boot-offset", "lines", "follow"],
     )]
     pub until: Option<NaiveDateTime>,
 
