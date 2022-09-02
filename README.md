@@ -36,4 +36,8 @@ Show the last 10 lines and all upcoming kernel logs (like `svlogtail`).
 svlog -f kernel
 ```
 
+## Installation
 
+You can find an xbps template here:
+https://github.com/pascal-huber/void-templates/blob/master/srcpkgs/svlog/template.
+Otherwise, `cargo` is your friend.
