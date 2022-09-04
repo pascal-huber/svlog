@@ -9,26 +9,36 @@ use std::{
 use calm_io::{pipefail, stdoutln};
 use notify::{raw_watcher, Op, RawEvent, RecursiveMode, Watcher};
 use pager::Pager;
-use rayon::prelude::*;
-use snafu::prelude::*;
+use rayon::prelude::{
+    IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
+use snafu::ResultExt;
 
+// use rayon::prelude::*;
+// use snafu::prelude::*;
 use crate::{
     error::*,
     printer::{log_file::*, log_line::*},
-    util::{cache::*, settings::*},
+    util::cache::*,
     LogFilterSettings, SvLogResult,
 };
 
 pub struct LogPrinter<'a> {
+    log_dir: &'a str,
     log_files: Vec<LogFile<'a>>,
     cache: Cache<String>,
     log_settings: &'a LogFilterSettings,
 }
 
 impl<'a> LogPrinter<'a> {
-    pub fn new(log_files: Vec<LogFile<'a>>, log_settings: &'a LogFilterSettings) -> LogPrinter<'a> {
+    pub fn new(
+        log_dir: &'a str,
+        log_files: Vec<LogFile<'a>>,
+        log_settings: &'a LogFilterSettings,
+    ) -> LogPrinter<'a> {
         let cache: Cache<String> = Cache::new(20);
         LogPrinter {
+            log_dir,
             log_files,
             cache,
             log_settings,
@@ -66,13 +76,13 @@ impl<'a> LogPrinter<'a> {
             message: "Failed to create watcher".to_string(),
         })?;
         watcher
-            .watch(LOG_DIR, RecursiveMode::Recursive)
+            .watch(self.log_dir, RecursiveMode::Recursive)
             .context(WatchFilesNotifySnafu {
-                message: format!("Failed to start watching {LOG_DIR}"),
+                message: format!("Failed to start watching {}", self.log_dir),
             })?;
         loop {
             let event = rx.recv().context(WatchFilesRecvSnafu {
-                message: format!("Receiveing events failed for dir {LOG_DIR}"),
+                message: format!("Receiveing events failed for dir {}", self.log_dir),
             })?;
             if let RawEvent {
                 path: Some(path),

@@ -1,7 +1,7 @@
 use std::{
     collections::BTreeSet,
     fs::File,
-    io::{prelude::*, BufReader},
+    io::{BufRead, BufReader},
 };
 
 use crate::{printer::log_line::*, LogFilterSettings, SvLogResult};

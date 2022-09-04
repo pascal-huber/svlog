@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use chrono::{LocalResult, NaiveDateTime, Offset, TimeZone, Timelike};
 use chrono_tz::Tz;
 use regex::Regex;
-use snafu::prelude::*;
+use snafu::{ensure, ResultExt};
 
 use crate::{error::*, printer::LogPriority};
 

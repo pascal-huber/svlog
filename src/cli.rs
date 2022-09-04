@@ -7,10 +7,7 @@ use std::{
 use chrono::{Duration, NaiveDateTime, Utc};
 use clap::{ColorChoice, Parser};
 
-use crate::{
-    printer::LogPriority,
-    util::{regex, service::*},
-};
+use crate::{printer::LogPriority, util::regex};
 
 static HELP_TEMPLATE: &str = "USAGE: {usage}\n{about}\n\n{all-args}";
 static CLI_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
@@ -29,14 +26,27 @@ pub struct Args {
     #[clap(short, long, conflicts_with_all = &["boot-offset", "lines"])]
     pub boot: bool,
 
-    /// Only show logs from a certain boot. An OFFSET of 0 means the current
-    /// boot (like --boot), an OFFSET of 1 the previous one and so on.
-    #[clap(short = 'o', long, value_name = "OFFSET", conflicts_with_all = &["boot", "lines"])]
-    pub boot_offset: Option<usize>,
+    /// Directory where the log files are locates
+    #[clap(
+        short = 'd',
+        long,
+        default_value = "/var/log/socklog/",
+        env = "SOCKLOG_LOG_DIR"
+    )]
+    pub log_dir: String,
 
     /// Follow the services for new logs.
-    #[clap(short, long)]
+    #[clap(short, long, conflicts_with = "boot-offset")]
     pub follow: bool,
+
+    /// Set the filter (--match) case insensitive
+    #[clap(short = 'i', long = "case-insensitive")]
+    pub case_insensitive: bool,
+
+    /// Number parallel jobs to process log files or "0" to use all logical
+    /// processors of system.
+    #[clap(short, long, default_value = "0")]
+    pub jobs: usize,
 
     /// List available services and exit
     #[clap(short, long)]
@@ -45,10 +55,6 @@ pub struct Args {
     /// Only show entries which match the regular expression <REGEX>
     #[clap(short = 'm', long = "match", required = false, value_name = "REGEX")]
     pub filter: Option<String>,
-
-    /// Set the filter (--match) case insensitive
-    #[clap(short = 'i', long = "case-insensitive")]
-    pub case_insensitive: bool,
 
     /// Limit the number of lines shown. <N> may be a positive integer or "all".
     /// If --follow is used, a default value of 10 is used.
@@ -65,14 +71,19 @@ pub struct Args {
     )]
     pub lines: Option<usize>,
 
-    /// Number parallel jobs to process log files or "0" to use all logical
-    /// processors of system.
-    #[clap(short, long, default_value = "0")]
-    pub jobs: usize,
-
     /// Just print to stdout and don't pipe the output into a pager
     #[clap(long = "no-pager")]
     pub no_pager: bool,
+
+    /// Only show logs from a certain boot. An OFFSET of 0 means the current
+    /// boot (like --boot), an OFFSET of 1 the previous one and so on.
+    #[clap(
+        short = 'o',
+        long,
+        value_name = "OFFSET",
+        conflicts_with_all = &["boot", "lines", "follow"],
+    )]
+    pub boot_offset: Option<usize>,
 
     /// Specify the priority (e.g. "warn") or a range of priorities
     /// (e.g. "warn..5") to display. A priority can be specified either as text
@@ -80,10 +91,6 @@ pub struct Args {
     /// warn(4), notice(5), info(6), debug(7).
     #[clap(short, long, parse(try_from_str = parse_priorities), default_value = "0..7")]
     pub priority: (LogPriority, LogPriority),
-
-    /// Services to log (all by default)
-    #[clap(parse(try_from_str = parse_service))]
-    pub services: Vec<String>,
 
     /// Only consider logs from this time on forward. Possible values: "today",
     /// "yesterday", "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DD HH:MM", "YYYY-MM-DD",
@@ -115,6 +122,10 @@ pub struct Args {
     /// other options).
     #[clap(long = "utc")]
     pub utc: bool,
+
+    /// Services to log (all by default)
+    #[clap()]
+    pub services: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -125,16 +136,6 @@ impl fmt::Display for InvalidArgError {
     }
 }
 impl Error for InvalidArgError {}
-
-fn parse_service(s: &str) -> Result<String, Box<dyn Error + Send + Sync + 'static>> {
-    if ALL_SERVICES.contains(&s.to_string()) {
-        return Ok(s.to_string());
-    }
-    Err(Box::new(InvalidArgError(format!(
-        "Service \"{}\" not found",
-        s
-    ))))
-}
 
 fn parse_priorities(
     s: &str,

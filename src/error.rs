@@ -57,4 +57,7 @@ pub enum SvLogError {
         message: String,
         source: notify::Error,
     },
+
+    #[snafu(display("Service \"{service}\" not found"))]
+    ServiceNotFoundError { service: String },
 }
