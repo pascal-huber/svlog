@@ -29,5 +29,3 @@ tzdb = "0.4.4"
 [dev-dependencies]
 assert_cmd = "2.0"
 predicates = "2.1"
-assert_fs = "1.0.7"
-tempfile = "3.3.0"

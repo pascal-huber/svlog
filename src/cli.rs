@@ -77,6 +77,7 @@ pub struct Args {
 
     /// Only show logs from a certain boot. An OFFSET of 0 means the current
     /// boot (like --boot), an OFFSET of 1 the previous one and so on.
+    #[cfg(target_env = "gnu")]
     #[clap(
         short = 'o',
         long,
