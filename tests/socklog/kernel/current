@@ -1,0 +1,8 @@
+2022-09-02T13:32:53.68972 kern.debug: happy, happy, happy
+2022-09-02T13:33:53.68972 kern.info: hello fren!
+2022-09-02T13:34:53.68972 kern.notice: look at this!
+2022-09-02T13:35:53.68972 kern.warn: this could be bad, no?
+2022-09-02T13:36:53.68972 kern.err: it is bad!
+2022-09-02T13:37:53.68972 kern.crit: oh dear... it is very bad!
+2022-09-02T13:38:53.68972 kern.alert: *kernel screams*
+2022-09-02T13:39:53.68972 kern.emerg: the kernel has uninvited you from its birthday party
