@@ -17,7 +17,7 @@ fn help_exists() -> Result<(), Box<dyn std::error::Error>> {
 fn list_services() -> Result<(), Box<dyn std::error::Error>> {
     let cmd = svlog!("-l");
     cmd.success()
-        .stdout(predicate::str::is_match("^ - kernel\n - daemon\n$").unwrap());
+        .stdout(predicate::str::is_match("^ - daemon\n - kernel\n$").unwrap());
     Ok(())
 }
 
