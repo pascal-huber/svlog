@@ -40,8 +40,17 @@ pub fn boot_times(offset: usize) -> SvLogResult<(Option<NaiveDateTime>, Option<N
 fn get_last_boot_time() -> SvLogResult<NaiveDateTime> {
     let sys = System::new();
     let boot_time_seconds = sys.boot_time();
-    let boot_time = NaiveDateTime::from_timestamp(boot_time_seconds as i64, 0);
-    Ok(boot_time)
+    let boot_time = NaiveDateTime::from_timestamp_opt(boot_time_seconds as i64, 0);
+    if let Some(boot_time) = boot_time {
+        Ok(boot_time)
+    } else {
+        Err(SvLogError::BootTimeNotFound {
+            message: format!(
+                "failed to create time for boot time from {:?}",
+                boot_time_seconds
+            ),
+        })
+    }
 }
 
 fn get_boot_time_with_offset(
