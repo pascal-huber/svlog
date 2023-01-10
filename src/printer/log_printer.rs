@@ -14,8 +14,6 @@ use rayon::prelude::{
 };
 use snafu::ResultExt;
 
-// use rayon::prelude::*;
-// use snafu::prelude::*;
 use crate::{
     error::*,
     printer::{log_file::*, log_line::*},
