@@ -13,7 +13,7 @@ license-file = "LICENSE"
 calm_io = "0.1.1"
 chrono = "0.4.19"
 chrono-tz = "0.8.1"
-clap = { version = "3.2.23", features = ["derive", "env"] }
+clap = { version = "4.1.1", features = ["derive", "env"] }
 derive_more = "0.99.17"
 glob = "0.3.1"
 globber = "0.1.3"
