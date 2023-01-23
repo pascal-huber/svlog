@@ -24,7 +24,7 @@ rayon = "1.5.3"
 regex = "1.5.6"
 snafu = { version = "0.7.1", features = ["backtraces"] }
 sysinfo = "0.26.1"
-tzdb = "0.4.4"
+tzdb = "0.5.3"
 
 [dev-dependencies]
 assert_cmd = "2.0"
