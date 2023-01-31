@@ -3,6 +3,7 @@ name = "svlog"
 version = "0.6.0"
 authors = ["Pascal Huber <pascal.huber@resolved.ch>"]
 edition = "2021"
+rust-version = "1.64" # cargo msrv
 description = "Display, filter and follow socklog log files on Void Linux."
 readme = "README.md"
 license-file = "LICENSE"
