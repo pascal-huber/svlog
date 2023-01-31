@@ -3,11 +3,10 @@ use std::{
     fs::File,
     io::{BufRead, BufReader, Seek, SeekFrom},
     path::Path,
-    sync::mpsc::channel,
 };
 
 use calm_io::{pipefail, stdoutln};
-use notify::{raw_watcher, Op, RawEvent, RecursiveMode, Watcher};
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use pager::Pager;
 use rayon::prelude::{
     IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
@@ -69,28 +68,24 @@ impl<'a> LogPrinter<'a> {
     }
 
     pub fn watch_logs(&mut self) -> SvLogResult<()> {
-        let (tx, rx) = channel();
-        let mut watcher = raw_watcher(tx).context(WatchFilesNotifySnafu {
-            message: "Failed to create watcher".to_string(),
-        })?;
+        let log_dir_path = Path::new(self.log_dir);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut watcher =
+            RecommendedWatcher::new(tx, Config::default()).context(WatchFilesNotifySnafu {
+                message: "Failed to create watcher".to_string(),
+            })?;
         watcher
-            .watch(self.log_dir, RecursiveMode::Recursive)
+            .watch(log_dir_path.as_ref(), RecursiveMode::Recursive)
             .context(WatchFilesNotifySnafu {
-                message: format!("Failed to start watching {}", self.log_dir),
+                message: "Failed to create watcher".to_string(),
             })?;
-        loop {
-            let event = rx.recv().context(WatchFilesRecvSnafu {
-                message: format!("Receiveing events failed for dir {}", self.log_dir),
-            })?;
-            if let RawEvent {
-                path: Some(path),
-                op: Ok(Op::WRITE),
-                cookie: _,
-            } = event
-            {
-                self.handle_write_event(&path)?;
+        for res in rx {
+            match res {
+                Ok(event) => self.handle_event(&event)?,
+                Err(e) => println!("watch error: {:?}", e),
             }
         }
+        Ok(())
     }
 
     fn jump_to_end(&mut self) {
@@ -138,7 +133,21 @@ impl<'a> LogPrinter<'a> {
         Ok(log_lines)
     }
 
-    fn handle_write_event(&mut self, path: &Path) -> SvLogResult<()> {
+    fn handle_event(&mut self, event: &notify::Event) -> SvLogResult<()> {
+        if let notify::Event {
+            kind: notify::event::EventKind::Modify(notify::event::ModifyKind::Data(_)),
+            paths,
+            attrs: _,
+        } = event
+        {
+            for path in paths {
+                self.handle_modified_path(path)?
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_modified_path(&mut self, path: &Path) -> SvLogResult<()> {
         for i in 0..self.log_files.len() {
             let path_name = path.to_str().unwrap();
             if self.log_files[i].name == path_name {
@@ -152,6 +161,7 @@ impl<'a> LogPrinter<'a> {
                 self.process_new_lines(i, &file, file_length)?;
             }
         }
+
         Ok(())
     }
 
