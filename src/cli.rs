@@ -5,7 +5,7 @@ use std::{
 };
 
 use chrono::{Duration, NaiveDateTime, Utc};
-use clap::{ColorChoice, Parser};
+use clap::{builder::ArgPredicate, Parser};
 
 use crate::{printer::LogPriority, util::regex};
 
@@ -16,14 +16,13 @@ static CLI_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 #[clap(
     about,
     author,
-    color = ColorChoice::Never,
     help_template = HELP_TEMPLATE,
     term_width = 80,
     version
 )]
 pub struct Args {
     /// Only show logs since the last (re)boot.
-    #[clap(short, long, conflicts_with_all = &["boot-offset", "lines"])]
+    #[clap(short, long, conflicts_with_all = &["boot_offset", "lines", "since", "until"])]
     pub boot: bool,
 
     /// Directory where the log files are locates
@@ -36,7 +35,7 @@ pub struct Args {
     pub log_dir: String,
 
     /// Follow the services for new logs.
-    #[clap(short, long, conflicts_with = "boot-offset")]
+    #[clap(short, long, conflicts_with = "boot_offset")]
     pub follow: bool,
 
     /// Set the filter (--match) case insensitive
@@ -62,12 +61,8 @@ pub struct Args {
         short = 'n',
         long = "lines",
         value_name = "N",
-        conflicts_with_all = &["boot-offset", "since", "until"],
-        // NOTE: although "boot" and "lines" conflict, "follow" sets a default value
-        //   for "lines" which we need to catch with a default value for "boot".
-        default_value_if("boot", None, None),
-        default_value_if("follow", None, Some("10")),
-        hide_default_value = true
+        conflicts_with_all = &["boot_offset", "boot", "since", "until"], //
+        default_value_if("follow", ArgPredicate::Equals("true".into()), Some("10")),
     )]
     pub lines: Option<usize>,
 
@@ -90,7 +85,7 @@ pub struct Args {
     /// (e.g. "warn..5") to display. A priority can be specified either as text
     /// or number. Available priorities: emerg(0), alert(1), crit(2), err(3),
     /// warn(4), notice(5), info(6), debug(7).
-    #[clap(short, long, parse(try_from_str = parse_priorities), default_value = "0..7")]
+    #[clap(short, long, value_parser = parse_priorities, default_value = "0..7")]
     pub priority: (LogPriority, LogPriority),
 
     /// Only consider logs from this time on forward. Possible values: "today",
@@ -101,8 +96,8 @@ pub struct Args {
     #[clap(
         short,
         long,
-        parse(try_from_str = parse_ndt_since),
-        conflicts_with_all = &["boot", "boot-offset", "lines", "follow"],
+        value_parser = parse_ndt_since,
+        conflicts_with_all = &["boot", "boot_offset", "lines", "follow"],
     )]
     pub since: Option<NaiveDateTime>,
 
@@ -114,8 +109,8 @@ pub struct Args {
     #[clap(
         short,
         long,
-        parse(try_from_str = parse_ndt_until),
-        conflicts_with_all = &["boot", "boot-offset", "lines", "follow"],
+        value_parser = parse_ndt_until,
+        conflicts_with_all = &["boot", "boot_offset", "lines", "follow"],
     )]
     pub until: Option<NaiveDateTime>,
 
