@@ -6,7 +6,10 @@ use std::{
 };
 
 use calm_io::{pipefail, stdoutln};
-use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{
+    event::{EventKind, ModifyKind},
+    Config, RecommendedWatcher, RecursiveMode, Watcher,
+};
 use pager::Pager;
 use rayon::prelude::{
     IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
@@ -135,7 +138,7 @@ impl<'a> LogPrinter<'a> {
 
     fn handle_event(&mut self, event: &notify::Event) -> SvLogResult<()> {
         if let notify::Event {
-            kind: notify::event::EventKind::Modify(notify::event::ModifyKind::Data(_)),
+            kind: EventKind::Modify(ModifyKind::Data(_)),
             paths,
             attrs: _,
         } = event
@@ -161,7 +164,6 @@ impl<'a> LogPrinter<'a> {
                 self.process_new_lines(i, &file, file_length)?;
             }
         }
-
         Ok(())
     }
 
