@@ -15,13 +15,11 @@ use rayon::prelude::{
     IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
 use snafu::ResultExt;
-
-use crate::{
-    error::*,
-    printer::{log_file::*, log_line::*},
-    util::cache::*,
-    LogFilterSettings, SvLogResult,
+use svlog_util::{
+    Cache, OpenFileSnafu, PrintLinesSnafu, SvLogResult, WatchFilesNotifySnafu, WatchFilesSnafu,
 };
+
+use crate::printer::{log_file::*, log_line::*, LogFilterSettings};
 
 pub struct LogPrinter<'a> {
     log_dir: &'a str,

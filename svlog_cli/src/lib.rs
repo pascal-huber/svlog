@@ -6,19 +6,23 @@ use std::{
 
 use chrono::{Duration, NaiveDateTime, Utc};
 use clap::{builder::ArgPredicate, Parser};
-
-use crate::{printer::LogPriority, util::regex};
+use svlog_util::{regex, LogPriority};
 
 static HELP_TEMPLATE: &str = "USAGE: {usage}\n{about}\n\n{all-args}";
 static CLI_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
 #[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
 #[clap(
-    about,
+    about = "Query socklog log files",
+    long_about = "Display, filter and follow socklog log files on Void Linux.",
     author,
+    name = "svlog",
     help_template = HELP_TEMPLATE,
-    term_width = 80,
-    version
+    // FIXME: add license to man page properly when its supported
+    //   https://github.com/clap-rs/clap/issues/3354
+    after_long_help = "License: MIT",
+    version,
 )]
 pub struct Args {
     /// Only show logs since the last (re)boot.
@@ -139,19 +143,19 @@ fn parse_priorities(
     let priorities: Vec<&str> = s.split("..").collect();
     let return_value = match priorities.len() {
         1 => {
-            let p = LogPriority::from_str(priorities.first().unwrap());
+            let p = LogPriority::parse(priorities.first().unwrap());
             p.map(|p| (p, p))
         }
         2 => {
             let p1 = *priorities.first().unwrap();
             let priority_1 = match p1 {
                 "" => Some(LogPriority::min()),
-                _ => LogPriority::from_str(p1),
+                _ => LogPriority::parse(p1),
             };
             let p2 = *priorities.last().unwrap();
             let priority_2 = match p2 {
                 "" => Some(LogPriority::max()),
-                _ => LogPriority::from_str(p2),
+                _ => LogPriority::parse(p2),
             };
             match (priority_1, priority_2) {
                 (Some(priority_1), Some(priority_2)) => Some((priority_1, priority_2)),

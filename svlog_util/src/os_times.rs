@@ -5,7 +5,12 @@ use chrono_tz::Tz;
 use snafu::{ensure, ResultExt};
 use sysinfo::{System, SystemExt};
 
-use crate::{error::*, util::settings::*};
+use crate::svlog_error::{
+    BootTimeNotFoundSnafu, CommandOutputSnafu, ParsingChronoSnafu, SvLogError, SvLogResult,
+    TimeZoneSnafu,
+};
+
+static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S";
 
 pub fn local_tz() -> SvLogResult<Tz> {
     let path = std::fs::read_link("/etc/localtime")

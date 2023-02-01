@@ -4,8 +4,7 @@ use chrono::{LocalResult, NaiveDateTime, Offset, TimeZone, Timelike};
 use chrono_tz::Tz;
 use regex::Regex;
 use snafu::{ensure, ResultExt};
-
-use crate::{error::*, printer::LogPriority};
+use svlog_util::{LogPriority, ParsingChronoSnafu, ParsingLogLineSnafu, SvLogError, SvLogResult};
 
 // NOTE: Socklog timestamps only have 5 digits at the end. Therefore the last is always 0.
 static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S.%f";
@@ -107,7 +106,7 @@ mod tests {
         assert!(ll.is_ok());
         let log_line = ll.unwrap();
         assert_eq!(log_line.content, String::from("kern.info message"));
-        assert_eq!(log_line.priority, LogPriority::from_str("info").unwrap());
+        assert_eq!(log_line.priority, LogPriority::parse("info").unwrap());
         assert_eq!(log_line.date_str, "2021-12-11T09:12:45.35141");
     }
 
@@ -180,7 +179,7 @@ mod tests {
         assert!(ll.is_ok());
         let log_line = ll.unwrap();
         assert_eq!(log_line.content, String::from("kernel.err\u{0009}y"));
-        assert_eq!(log_line.priority, LogPriority::from_str("err").unwrap());
+        assert_eq!(log_line.priority, LogPriority::parse("err").unwrap());
         assert_eq!(log_line.date_str, "2021-12-11T09:12:45.35141");
     }
 
@@ -195,21 +194,21 @@ mod tests {
     fn priority_err() {
         let s = "kern.err: x y z";
         let prio = LogLine::read_priority(s);
-        assert_eq!(prio, LogPriority::from_str("err").unwrap());
+        assert_eq!(prio, LogPriority::parse("err").unwrap());
     }
 
     #[test]
     fn priority_err_without_colon() {
         let s = "kern.err x y z";
         let prio = LogLine::read_priority(s);
-        assert_eq!(prio, LogPriority::from_str("err").unwrap());
+        assert_eq!(prio, LogPriority::parse("err").unwrap());
     }
 
     #[test]
     fn priority_err_2() {
         let s = ".err: x y z";
         let prio = LogLine::read_priority(s);
-        assert_eq!(prio, LogPriority::from_str("err").unwrap());
+        assert_eq!(prio, LogPriority::parse("err").unwrap());
     }
 
     #[test]

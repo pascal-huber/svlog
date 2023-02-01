@@ -8,7 +8,7 @@ use snafu::Snafu;
 pub type SvLogResult<T> = Result<T, SvLogError>;
 
 #[derive(Debug, Snafu)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 pub enum SvLogError {
     #[snafu(display("InvalidArgCombinationError: {}", message))]
     InvalidArgCombinationError { message: String },
