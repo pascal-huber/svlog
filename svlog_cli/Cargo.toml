@@ -1,6 +1,6 @@
 [package]
 name = "svlog_cli"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Pascal Huber <pascal.huber@resolved.ch>"]
 edition = "2021"
 

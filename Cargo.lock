@@ -996,7 +996,7 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "svlog"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "assert_cmd",
  "calm_io",
@@ -1019,7 +1019,7 @@ dependencies = [
 
 [[package]]
 name = "svlog_cli"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -1029,7 +1029,7 @@ dependencies = [
 
 [[package]]
 name = "svlog_util"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "chrono",
  "chrono-tz",
