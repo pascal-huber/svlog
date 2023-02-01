@@ -1,21 +1,15 @@
-#[macro_use]
-extern crate lazy_static;
-
-mod cli;
-mod error;
 mod printer;
-mod util;
 
 use std::path::PathBuf;
 
 use clap::Parser;
-use cli::Args;
-
-use crate::{
-    error::{SvLogError, SvLogResult},
-    printer::{LogFilterSettings, LogPrinter},
-    util::service::{all_services, file_paths, list_services, service_log_files},
+use svlog_cli::Args;
+use svlog_util::{
+    services::{check_services, file_paths, list_services},
+    SvLogResult,
 };
+
+use crate::printer::{LogFile, LogFilterSettings, LogPrinter};
 
 fn main() {
     let args = Args::parse();
@@ -44,14 +38,9 @@ fn try_main(args: &Args) -> SvLogResult<()> {
     Ok(())
 }
 
-fn check_services(log_dir: &str, services: &Vec<String>) -> SvLogResult<()> {
-    let all_services = all_services(log_dir);
-    for service in services {
-        if !all_services.contains(service) {
-            return Err(SvLogError::ServiceNotFoundError {
-                service: service.clone(),
-            });
-        }
-    }
-    Ok(())
+pub fn service_log_files(service_file_paths: &[PathBuf]) -> Vec<LogFile> {
+    service_file_paths
+        .iter()
+        .map(|path| LogFile::new(path.to_str().unwrap()))
+        .collect()
 }

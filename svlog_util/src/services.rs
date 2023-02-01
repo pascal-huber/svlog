@@ -2,14 +2,20 @@ use std::path::{Path, PathBuf};
 
 use glob::glob;
 
-use super::settings::GLOB_ALL_FILES;
-use crate::printer::LogFile;
+use crate::{SvLogError, SvLogResult};
 
-pub fn service_log_files(service_file_paths: &[PathBuf]) -> Vec<LogFile> {
-    service_file_paths
-        .iter()
-        .map(|path| LogFile::new(path.to_str().unwrap()))
-        .collect()
+static GLOB_ALL_FILES: &[&str] = &["/current", "/*.[su]"];
+
+pub fn check_services(log_dir: &str, services: &Vec<String>) -> SvLogResult<()> {
+    let all_services = all_services(log_dir);
+    for service in services {
+        if !all_services.contains(service) {
+            return Err(SvLogError::ServiceNotFoundError {
+                service: service.clone(),
+            });
+        }
+    }
+    Ok(())
 }
 
 pub fn file_paths(log_dir: &str, services: &[String]) -> Vec<PathBuf> {

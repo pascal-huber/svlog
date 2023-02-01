@@ -1,16 +1,8 @@
 use chrono::{NaiveDateTime, TimeZone};
 use chrono_tz::Tz;
 use regex::Regex;
-
-use crate::{
-    cli::Args,
-    error::SvLogResult,
-    printer::LogPriority,
-    util::{
-        os_times::{boot_times, local_tz},
-        regex::build_regex,
-    },
-};
+use svlog_cli::Args;
+use svlog_util::{boot_times, local_tz, regex::build_regex, LogPriority, SvLogResult};
 
 pub struct LogFilterSettings {
     pub re: Option<Regex>,

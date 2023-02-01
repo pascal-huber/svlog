@@ -2,7 +2,7 @@
 pub struct LogPriority(u8);
 
 impl LogPriority {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         Self::priority_value(s)
     }
 

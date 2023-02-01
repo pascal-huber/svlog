@@ -1,0 +1,11 @@
+[package]
+name = "svlog_cli"
+version = "0.6.0"
+authors = ["Pascal Huber <pascal.huber@resolved.ch>"]
+edition = "2021"
+
+[dependencies]
+chrono = "0.4.19"
+chrono-tz = "0.8.1"
+clap = { version = "4.1.4", features = ["derive", "env", "wrap_help"] }
+svlog_util = { path = "../svlog_util" }
