@@ -7,5 +7,5 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.19"
 chrono-tz = "0.8.1"
-clap = { version = "4.1.4", features = ["derive", "env", "wrap_help"] }
+clap = { version = "4.1.6", features = ["derive", "env", "wrap_help"] }
 svlog_util = { path = "../svlog_util" }
