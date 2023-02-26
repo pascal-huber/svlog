@@ -1022,7 +1022,6 @@ name = "svlog_cli"
 version = "0.6.1"
 dependencies = [
  "chrono",
- "chrono-tz",
  "clap",
  "svlog_util",
 ]
