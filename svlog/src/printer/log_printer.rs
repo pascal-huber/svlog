@@ -152,7 +152,7 @@ impl<'a> LogPrinter<'a> {
         for i in 0..self.log_files.len() {
             let path_name = path.to_str().unwrap();
             if self.log_files[i].name == path_name {
-                let file = File::open(&path).context(OpenFileSnafu {
+                let file = File::open(path).context(OpenFileSnafu {
                     path: format!("{:?}", path),
                 })?;
                 let file_length = file.metadata().unwrap().len();
