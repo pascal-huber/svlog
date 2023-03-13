@@ -5,6 +5,6 @@ authors = ["Pascal Huber <pascal.huber@resolved.ch>"]
 edition = "2021"
 
 [dependencies]
-chrono = "0.4.19"
+chrono = "0.4.24"
 clap = { version = "4.1.4", features = ["derive", "env", "wrap_help"] }
 svlog_util = { path = "../svlog_util" }
