@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.24"
-chrono-tz = "0.8.1"
+chrono-tz = "0.8.2"
 lazy_static = "1.4.0"
 notify = "5.1.0"
 snafu = { version = "0.7.1", features = ["backtraces"] }
