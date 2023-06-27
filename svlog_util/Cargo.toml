@@ -9,7 +9,7 @@ chrono = "0.4.24"
 chrono-tz = "0.8.2"
 lazy_static = "1.4.0"
 notify = "5.1.0"
-snafu = { version = "0.7.1", features = ["backtraces"] }
+snafu = { version = "0.7.4", features = ["backtraces"] }
 regex = "1.7.3"
 sysinfo = "0.28.4"
 glob = "0.3.1"
