@@ -21,7 +21,7 @@ globber = "0.1.3"
 notify = "6.0.1"
 pager = "0.16.1"
 rayon = "1.7.0"
-regex = "1.8.4"
+regex = "1.9.3"
 snafu = { version = "0.7.4", features = ["backtraces"] }
 svlog_cli = { path = "../svlog_cli" }
 svlog_util = { path = "../svlog_util" }
