@@ -4,7 +4,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-use crate::{printer::log_line::*, LogFilterSettings, SvLogResult};
+use crate::{printer::log_line::*, LogFilterSettings};
 
 pub struct LogFile<'a> {
     pub name: &'a str,
@@ -23,27 +23,20 @@ impl<'a> LogFile<'a> {
         self.position = length;
     }
 
-    pub fn extract_loglines(
-        &mut self,
-        log_settings: &LogFilterSettings,
-    ) -> SvLogResult<BTreeSet<LogLine>> {
+    pub fn extract_loglines(&mut self, log_settings: &LogFilterSettings) -> BTreeSet<LogLine> {
         let file = File::open(self.name).unwrap();
         let reader = BufReader::new(&file);
         let log_lines: BTreeSet<LogLine> = reader
             .lines()
             .flatten()
-            .map(LogLine::new)
-            .collect::<SvLogResult<BTreeSet<LogLine>>>()?
-            // TODO: check out the unstable "try_collect"
-            .iter()
-            .filter(|&l| l.is_between(&log_settings.since, &log_settings.until))
-            .filter(|&l| l.is_match(&log_settings.re))
-            .filter(|&l| l.has_priority(&log_settings.min_priority, &log_settings.max_priority))
-            .cloned()
+            .filter_map(|l| LogLine::new(l).ok())
+            .filter(|l| l.is_between(&log_settings.since, &log_settings.until))
+            .filter(|l| l.is_match(&log_settings.re))
+            .filter(|l| l.has_priority(&log_settings.min_priority, &log_settings.max_priority))
             .collect();
         let meta = file.metadata();
         let length = meta.unwrap().len();
         self.position = length;
-        Ok(log_lines)
+        log_lines
     }
 }
