@@ -33,4 +33,4 @@ predicates = "3.0.4"
 [build-dependencies]
 clap_mangen = "0.2.15"
 svlog_cli = { path = "../svlog_cli" }
-clap = { version = "4.3.23" }
+clap = { version = "4.4.8" }
