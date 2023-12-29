@@ -13,7 +13,7 @@ license-file = "LICENSE"
 [dependencies]
 calm_io = "0.1.1"
 chrono = "0.4.31"
-chrono-tz = "0.8.4"
+chrono-tz = "0.8.5"
 clap = { version = "4.4.11"}
 derive_more = "0.99.17"
 glob = "0.3.1"
