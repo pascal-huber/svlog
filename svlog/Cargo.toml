@@ -22,7 +22,7 @@ notify = "6.1.1"
 pager = "0.16.1"
 rayon = "1.8.0"
 regex = "1.10.2"
-snafu = { version = "0.7.5", features = ["backtraces"] }
+snafu = { version = "0.8.0" }
 svlog_cli = { path = "../svlog_cli" }
 svlog_util = { path = "../svlog_util" }
 
