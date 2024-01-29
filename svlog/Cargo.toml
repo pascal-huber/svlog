@@ -31,6 +31,6 @@ assert_cmd = "2.0.13"
 predicates = "3.1.0"
 
 [build-dependencies]
-clap_mangen = "0.2.16"
+clap_mangen = "0.2.18"
 svlog_cli = { path = "../svlog_cli" }
 clap = { version = "4.4.14" }
