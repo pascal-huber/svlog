@@ -27,7 +27,7 @@ svlog_cli = { path = "../svlog_cli" }
 svlog_util = { path = "../svlog_util" }
 
 [dev-dependencies]
-assert_cmd = "2.0.13"
+assert_cmd = "2.0.14"
 predicates = "3.1.0"
 
 [build-dependencies]
