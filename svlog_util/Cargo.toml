@@ -10,6 +10,6 @@ chrono-tz = "0.8.5"
 lazy_static = "1.4.0"
 notify = "6.1.1"
 snafu = { version = "0.8.0" }
-regex = "1.10.3"
+regex = "1.10.4"
 sysinfo = "0.30.5"
 glob = "0.3.1"
