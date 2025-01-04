@@ -1,6 +1,6 @@
 use std::{ops::Sub, process::Command};
 
-use chrono::{Duration, NaiveDateTime};
+use chrono::{DateTime, Duration, NaiveDateTime};
 use chrono_tz::Tz;
 use snafu::{ensure, ResultExt};
 use sysinfo::System;
@@ -44,9 +44,9 @@ pub fn boot_times(offset: usize) -> SvLogResult<(Option<NaiveDateTime>, Option<N
 
 fn get_last_boot_time() -> SvLogResult<NaiveDateTime> {
     let boot_time_seconds = System::boot_time();
-    let boot_time = NaiveDateTime::from_timestamp_opt(boot_time_seconds as i64, 0);
+    let boot_time = DateTime::from_timestamp(boot_time_seconds as i64, 0);
     if let Some(boot_time) = boot_time {
-        Ok(boot_time)
+        Ok(boot_time.naive_utc())
     } else {
         Err(SvLogError::BootTimeNotFound {
             message: format!(
