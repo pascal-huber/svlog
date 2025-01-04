@@ -1,6 +1,6 @@
 [package]
 name = "svlog"
-version = "0.6.2"
+version = "0.6.3"
 authors = ["Pascal Huber <pascal.huber@resolved.ch>"]
 edition = "2021"
 rust-version = "1.64" # cargo msrv
